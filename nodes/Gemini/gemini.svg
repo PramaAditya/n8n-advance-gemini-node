@@ -1,8 +1,44 @@
 <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="60" height="60" rx="12" fill="#4285F4"/>
-  <path d="M30 15L35 25H25L30 15Z" fill="white"/>
-  <path d="M45 30L35 25L35 35L45 30Z" fill="white"/>
-  <path d="M30 45L25 35H35L30 45Z" fill="white"/>
-  <path d="M15 30L25 35L25 25L15 30Z" fill="white"/>
-  <circle cx="30" cy="30" r="5" fill="white"/>
+  <!-- Background with gradient -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4285F4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8AB4F8;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="sparkleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#E8F0FE;stop-opacity:0.9" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Rounded rectangle background -->
+  <rect width="60" height="60" rx="12" fill="url(#bgGradient)"/>
+  
+  <!-- Main sparkle star (larger) -->
+  <g transform="translate(30, 25)">
+    <!-- Vertical beam -->
+    <path d="M 0,-8 L 1.5,-2 L 1.5,2 L 0,8 L -1.5,2 L -1.5,-2 Z" fill="url(#sparkleGradient)"/>
+    <!-- Horizontal beam -->
+    <path d="M -8,0 L -2,-1.5 L 2,-1.5 L 8,0 L 2,1.5 L -2,1.5 Z" fill="url(#sparkleGradient)"/>
+    <!-- Diagonal beam (top-left to bottom-right) -->
+    <path d="M -5.7,-5.7 L -2.1,-2.1 L 0,-1.4 L 2.1,-2.1 L 5.7,-5.7 L 4.3,-4.3 L 1.4,0 L 4.3,4.3 L 5.7,5.7 L 2.1,2.1 L 0,1.4 L -2.1,2.1 L -5.7,5.7 L -4.3,4.3 L -1.4,0 L -4.3,-4.3 Z" fill="url(#sparkleGradient)" opacity="0.7"/>
+    <!-- Center glow -->
+    <circle cx="0" cy="0" r="2.5" fill="white"/>
+  </g>
+  
+  <!-- Secondary sparkle star (smaller, bottom-right) -->
+  <g transform="translate(42, 40)">
+    <!-- Vertical beam -->
+    <path d="M 0,-5 L 1,-1.5 L 1,1.5 L 0,5 L -1,1.5 L -1,-1.5 Z" fill="white" opacity="0.8"/>
+    <!-- Horizontal beam -->
+    <path d="M -5,0 L -1.5,-1 L 1.5,-1 L 5,0 L 1.5,1 L -1.5,1 Z" fill="white" opacity="0.8"/>
+    <!-- Center dot -->
+    <circle cx="0" cy="0" r="1.2" fill="white"/>
+  </g>
+  
+  <!-- Tertiary sparkle (tiny, top-left) -->
+  <g transform="translate(18, 18)">
+    <path d="M 0,-3 L 0.5,-1 L 0.5,1 L 0,3 L -0.5,1 L -0.5,-1 Z" fill="white" opacity="0.6"/>
+    <path d="M -3,0 L -1,-0.5 L 1,-0.5 L 3,0 L 1,0.5 L -1,0.5 Z" fill="white" opacity="0.6"/>
+  </g>
 </svg>

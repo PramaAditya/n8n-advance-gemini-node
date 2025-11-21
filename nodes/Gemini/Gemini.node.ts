@@ -1,11 +1,11 @@
-import {
+import type {
 	IExecuteFunctions,
 	INodeExecutionData,
 	INodeType,
 	INodeTypeDescription,
-	NodeConnectionType,
-	NodeOperationError,
 } from 'n8n-workflow';
+
+import { NodeOperationError } from 'n8n-workflow';
 
 import { GoogleGenAI } from '@google/genai';
 import { ImageUtils } from './utils/imageUtils';
@@ -23,8 +23,8 @@ export class Gemini implements INodeType {
 		defaults: {
 			name: 'Nano Banana',
 		},
-		inputs: [NodeConnectionType.Main],
-		outputs: [NodeConnectionType.Main],
+		inputs: ['main'],
+		outputs: ['main'],
 		usableAsTool: true,
 		credentials: [
 			{
@@ -102,6 +102,11 @@ export class Gemini implements INodeType {
 						name: 'Nano Banana Image',
 						value: 'gemini-2.5-flash-image-preview',
 						description: 'Latest model with image generation capabilities',
+					},
+					{
+						name: 'Nano Banana Pro',
+						value: 'gemini-3-pro-image-preview',
+						description: 'Advanced image generation model with perfect text rendering - excellent for educational illustrations',
 					}
 				],
 				default: 'gemini-2.5-flash-image-preview',
