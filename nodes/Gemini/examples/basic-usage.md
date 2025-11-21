@@ -1,4 +1,4 @@
-# Nano Banana Node Usage Examples
+# Nano Banana Pro Node Usage Examples
 
 ## Basic Text Generation
 

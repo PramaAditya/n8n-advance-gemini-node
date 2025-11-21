@@ -1,4 +1,4 @@
-# Advanced Nano Banana Node Usage
+# Advanced Nano Banana Pro Node Usage
 
 ## Photoshoot Generation Example (Based on Your Script)
 
@@ -77,17 +77,17 @@ Generated images are automatically available in the node's binary data output:
 
 ### 1. Image Processing Chain:
 ```
-Webhook → Nano Banana (Generate) → HTTP Response (Send Image)
+Webhook → Nano Banana Pro (Generate) → HTTP Response (Send Image)
 ```
 
 ### 2. Batch Processing:
 ```
-Schedule → Nano Banana (Multiple Prompts) → File Storage → Email
+Schedule → Nano Banana Pro (Multiple Prompts) → File Storage → Email
 ```
 
 ### 3. Interactive Chat:
 ```
-Webhook → Nano Banana (Conversation) → Database (Store) → Webhook Response
+Webhook → Nano Banana Pro (Conversation) → Database (Store) → Webhook Response
 ```
 
 ## Error Handling

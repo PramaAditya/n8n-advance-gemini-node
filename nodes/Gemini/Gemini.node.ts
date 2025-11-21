@@ -13,7 +13,7 @@ import { ulid } from 'ulid';
 
 export class Gemini implements INodeType {
 	description: INodeTypeDescription = {
-		displayName: 'Nano Banana',
+		displayName: 'Nano Banana Pro',
 		name: 'gemini',
 		icon: 'file:gemini.svg',
 		group: ['transform'],
@@ -21,7 +21,7 @@ export class Gemini implements INodeType {
 		subtitle: '={{$parameter["operation"]}}',
 		description: 'Interact with Google Gemini AI models for text and image generation',
 		defaults: {
-			name: 'Nano Banana',
+			name: 'Nano Banana Pro',
 		},
 		inputs: ['main'],
 		outputs: ['main'],
@@ -99,12 +99,12 @@ export class Gemini implements INodeType {
 				},
 				options: [
 					{
-						name: 'Nano Banana Image',
+						name: 'Nano Banana Pro Image',
 						value: 'gemini-2.5-flash-image-preview',
 						description: 'Latest model with image generation capabilities',
 					},
 					{
-						name: 'Nano Banana Pro',
+						name: 'Nano Banana Pro Pro',
 						value: 'gemini-3-pro-image-preview',
 						description: 'Advanced image generation model with perfect text rendering - excellent for educational illustrations',
 					}

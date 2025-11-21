@@ -1,6 +1,6 @@
 # n8n-nodes-nano-banana
 
-This is an n8n community node that integrates Google's Gemini AI models for advanced text and image generation capabilities. It lets you use Nano Banana (powered by Gemini AI) in your n8n workflows for creating images, analyzing visual content, and generating text responses.
+This is an n8n community node that integrates Google's Gemini AI models for advanced text and image generation capabilities. It lets you use Nano Banana Pro (powered by Gemini AI) in your n8n workflows for creating images, analyzing visual content, and generating text responses.
 
 Google Gemini AI is a powerful multimodal AI platform that can understand and generate both text and images, making it perfect for creative workflows, content generation, and AI-powered automation.
 
@@ -40,7 +40,7 @@ After installation restart n8n to use the new nodes.
 
 ## Operations
 
-The Nano Banana node supports the following operations:
+The Nano Banana Pro node supports the following operations:
 
 ### Generate Content
 - **Text Generation**: Create written content, stories, code, and more
@@ -75,7 +75,7 @@ To use this node, you need a Google AI Studio API key.
    - Copy the generated API key (starts with `AIza...`)
 
 3. **Configure in n8n**
-   - In your n8n workflow, add the Nano Banana node
+   - In your n8n workflow, add the Nano Banana Pro node
    - Click on the credential field
    - Select "Create New"
    - Choose "AI Studio Credentials API"
@@ -127,10 +127,10 @@ When using JSON format, provide a JSON object with the following structure:
 
 ### Basic Text Generation
 
-1. Add a **Nano Banana** node to your workflow
+1. Add a **Nano Banana Pro** node to your workflow
 2. Set up your **AI Studio Credentials**
 3. Select **Generate Image** operation
-4. Choose **Nano Banana Image** model
+4. Choose **Nano Banana Pro Image** model
 5. Select **JSON Format** if you want to use JSON input, or keep **Manual Mapping**
 6. Enter your prompt in **Current Message** (Manual) or **JSON Input** (JSON)
 7. Set **Response Modalities** to **TEXT**

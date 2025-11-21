@@ -1,8 +1,8 @@
 # n8n-nodes-nano-banana
 
-This is an n8n community node. It lets you use **Nano Banana** (powered by Google Gemini AI) in your n8n workflows.
+This is an n8n community node. It lets you use **Nano Banana Pro** (powered by Google Gemini AI) in your n8n workflows.
 
-**Nano Banana** is an AI-powered node that provides advanced text and image generation capabilities using Google's Gemini AI models. It enables seamless integration of multimodal AI features into your automation workflows, including image creation, visual analysis, and intelligent text generation.
+**Nano Banana Pro** is an AI-powered node that provides advanced text and image generation capabilities using Google's Gemini AI models. It enables seamless integration of multimodal AI features into your automation workflows, including image creation, visual analysis, and intelligent text generation.
 
 [n8n](https://n8n.io/) is a [fair-code licensed](https://docs.n8n.io/reference/license/) workflow automation platform.
 
@@ -36,7 +36,7 @@ npm install @nectopro/n8n-nodes-nano-banana
 
 ## Operations
 
-The Nano Banana node supports the following operations:
+The Nano Banana Pro node supports the following operations:
 
 ### Generate Content
 - **Text Generation**: Create written content, stories, articles, and code
@@ -74,7 +74,7 @@ You need a Google AI Studio API key to use this node.
    - **Important**: Keep this key secure and never share it publicly
 
 4. **Configure in n8n**
-   - Add a Nano Banana node to your workflow
+   - Add a Nano Banana Pro node to your workflow
    - Click on the credential dropdown
    - Select "Create New"
    - Choose "AI Studio Credentials API"
@@ -114,10 +114,10 @@ You need a Google AI Studio API key to use this node.
 
 ### Basic Text Generation
 
-1. Add **Nano Banana** node to your workflow
+1. Add **Nano Banana Pro** node to your workflow
 2. Configure **AI Studio Credentials API**
 3. Set **Operation** to "Generate Content"
-4. Choose **Model**: "Nano Banana Image"
+4. Choose **Model**: "Nano Banana Pro Image"
 5. Enter your prompt in **Current Message**
 6. Set **Response Modalities** to "TEXT"
 7. Execute the node
