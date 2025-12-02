@@ -9,19 +9,20 @@ import { NodeOperationError } from 'n8n-workflow';
 
 import { GoogleGenAI } from '@google/genai';
 import { ImageUtils } from './utils/imageUtils';
+import { S3Utils } from './utils/s3Utils';
 import { ulid } from 'ulid';
 
 export class Gemini implements INodeType {
 	description: INodeTypeDescription = {
-		displayName: 'Nano Banana Pro',
+		displayName: 'Advance Gemini',
 		name: 'gemini',
 		icon: 'file:gemini.svg',
 		group: ['transform'],
 		version: 1,
 		subtitle: '={{$parameter["operation"]}}',
-		description: 'Interact with Google Gemini AI models for text and image generation',
+		description: 'Interact with Google Gemini AI models',
 		defaults: {
-			name: 'Nano Banana Pro',
+			name: 'Advance Gemini',
 		},
 		inputs: ['main'],
 		outputs: ['main'],
@@ -30,6 +31,11 @@ export class Gemini implements INodeType {
 			{
 				name: 'googlePalmApi',
 				required: true,
+			},
+			{
+				// eslint-disable-next-line n8n-nodes-base/node-class-description-credentials-name-unsuffixed
+				name: 's3',
+				required: false,
 			},
 		],
 		properties: [
@@ -43,7 +49,7 @@ export class Gemini implements INodeType {
 						name: 'Generate Image',
 						value: 'generateContent',
 						description: 'Generate text and images using Gemini models',
-						action: 'Generate image with nano banana',
+						action: 'Generate image with Nano Banana',
 					},
 				],
 				default: 'generateContent',
@@ -369,6 +375,34 @@ export class Gemini implements INodeType {
 				description: 'Resolution for the generated image',
 			},
 			{
+				displayName: 'Upload to S3',
+				name: 'uploadToS3',
+				type: 'boolean',
+				displayOptions: {
+					show: {
+						operation: ['generateContent'],
+						responseModalities: ['IMAGE'],
+					},
+				},
+				default: false,
+				description: 'Whether to upload generated images to S3 and return the URL',
+			},
+			{
+				displayName: 'S3 Bucket Name',
+				name: 's3BucketName',
+				type: 'string',
+				displayOptions: {
+					show: {
+						operation: ['generateContent'],
+						responseModalities: ['IMAGE'],
+						uploadToS3: [true],
+					},
+				},
+				default: '',
+				description: 'Name of the S3 bucket to upload to',
+				required: true,
+			},
+			{
 				displayName: 'Use Grounding Search',
 				name: 'useGroundingSearch',
 				type: 'boolean',
@@ -650,13 +684,35 @@ export class Gemini implements INodeType {
 							for (const part of parts) {
 								if (part.inlineData) {
 									// Handle generated image
-									const fileName = `img_${ulid()}_${fileIndex++}`;
-									const imageData = ImageUtils.saveBinaryToNodeData(
-										part.inlineData.data || '',
-										part.inlineData.mimeType || 'image/png',
-										fileName,
-									);
-									generatedImages.push(imageData);
+									const mimeType = part.inlineData.mimeType || 'image/png';
+									const data = part.inlineData.data || '';
+									
+									if (this.getNodeParameter('uploadToS3', i, false)) {
+										const bucketName = this.getNodeParameter('s3BucketName', i) as string;
+										const buffer = Buffer.from(data, 'base64');
+										
+										const s3Url = await S3Utils.uploadToS3(
+											this,
+											buffer,
+											mimeType,
+											bucketName,
+											`gemini_${ulid()}_${fileIndex++}`
+										);
+										
+										generatedImages.push({
+											url: s3Url,
+											mimeType,
+											fileName: s3Url.split('/').pop(),
+										});
+									} else {
+										const fileName = `img_${ulid()}_${fileIndex++}`;
+										const imageData = ImageUtils.saveBinaryToNodeData(
+											data,
+											mimeType,
+											fileName,
+										);
+										generatedImages.push(imageData);
+									}
 								} else if (part.text) {
 									// Handle text response
 									textResponse += part.text;
@@ -677,26 +733,41 @@ export class Gemini implements INodeType {
 
 					// Add image metadata to JSON result if images were generated
 					if (generatedImages.length > 0) {
-						result.metadata = {
-							mimeType: generatedImages[0].mimeType,
-							fileName: generatedImages[0].fileName,
+						if (generatedImages[0].url) {
+							// S3 Upload case
+							result.images = generatedImages.map(img => ({
+								url: img.url,
+								fileName: img.fileName,
+								mimeType: img.mimeType
+							}));
+							// Backward compatibility for single image
+							result.imageUrl = generatedImages[0].url;
+						} else {
+							// Binary data case
+							result.metadata = {
+								mimeType: generatedImages[0].mimeType,
+								fileName: generatedImages[0].fileName,
+							};
+						}
+					}
+
+					const responseData: INodeExecutionData = {
+						json: result,
+						pairedItem: { item: i },
+					};
+
+					// Only add binary data if NOT uploading to S3
+					if (generatedImages.length > 0 && !generatedImages[0].url) {
+						responseData.binary = {
+							data: {
+								data: generatedImages[0].data.toString('base64'),
+								mimeType: generatedImages[0].mimeType,
+								fileName: generatedImages[0].fileName,
+							},
 						};
 					}
 
-					returnData.push({
-						json: result,
-						binary:
-							generatedImages.length > 0
-								? {
-										data: {
-											data: generatedImages[0].data.toString('base64'),
-											mimeType: generatedImages[0].mimeType,
-											fileName: generatedImages[0].fileName,
-										},
-									}
-								: undefined,
-						pairedItem: { item: i },
-					});
+					returnData.push(responseData);
 				}
 			} catch (error) {
 				// Sanitize error message to prevent binary data leakage
