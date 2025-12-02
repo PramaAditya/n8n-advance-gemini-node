@@ -278,6 +278,109 @@ export class Gemini implements INodeType {
 				default: ['TEXT', 'IMAGE'],
 				description: 'Types of content the model should generate',
 			},
+			{
+				displayName: 'Image Aspect Ratio',
+				name: 'imageAspectRatio',
+				type: 'options',
+				displayOptions: {
+					show: {
+						operation: ['generateContent'],
+						responseModalities: ['IMAGE'],
+					},
+				},
+				options: [
+					{
+						name: 'Auto',
+						value: '',
+						description: 'Let the model decide the aspect ratio automatically',
+					},
+					{
+						name: '1:1 (Square)',
+						value: '1:1',
+					},
+					{
+						name: '9:16 (Vertical)',
+						value: '9:16',
+					},
+					{
+						name: '16:9 (Horizontal)',
+						value: '16:9',
+					},
+					{
+						name: '3:4 (Portrait)',
+						value: '3:4',
+					},
+					{
+						name: '4:3 (Landscape)',
+						value: '4:3',
+					},
+					{
+						name: '2:3 (Portrait)',
+						value: '2:3',
+					},
+					{
+						name: '3:2 (Landscape)',
+						value: '3:2',
+					},
+					{
+						name: '4:5 (Portrait)',
+						value: '4:5',
+					},
+					{
+						name: '5:4 (Landscape)',
+						value: '5:4',
+					},
+					{
+						name: '21:9 (Ultra Wide)',
+						value: '21:9',
+					},
+				],
+				default: '',
+				description: 'Aspect ratio for the generated image',
+			},
+			{
+				displayName: 'Image Resolution',
+				name: 'imageSize',
+				type: 'options',
+				displayOptions: {
+					show: {
+						operation: ['generateContent'],
+						responseModalities: ['IMAGE'],
+					},
+				},
+				options: [
+					{
+						name: '1K (Fast)',
+						value: '1K',
+						description: 'Lower resolution, faster generation',
+					},
+					{
+						name: '2K (Balanced)',
+						value: '2K',
+						description: 'Medium resolution, balanced speed',
+					},
+					{
+						name: '4K (High Quality)',
+						value: '4K',
+						description: 'High resolution, slower generation',
+					},
+				],
+				default: '1K',
+				description: 'Resolution for the generated image',
+			},
+			{
+				displayName: 'Use Grounding Search',
+				name: 'useGroundingSearch',
+				type: 'boolean',
+				displayOptions: {
+					show: {
+						operation: ['generateContent'],
+						model: ['gemini-3-pro-image-preview'],
+					},
+				},
+				default: false,
+				description: 'Enable grounding search to ground image generation with real-world knowledge (only available for Nano Banana Pro)',
+			},
 
 			{
 				displayName: 'Additional Options',
@@ -484,6 +587,36 @@ export class Gemini implements INodeType {
 					const config: any = {
 						responseModalities,
 					};
+
+					// Add image configuration if IMAGE response modality is enabled
+					if (responseModalities.includes('IMAGE')) {
+						const imageAspectRatio = this.getNodeParameter('imageAspectRatio', i, '') as string;
+						const imageSize = this.getNodeParameter('imageSize', i, '1K') as string;
+
+						const imageConfig: any = {};
+						
+						// Only add aspectRatio if it's not Auto (empty string)
+						if (imageAspectRatio) {
+							imageConfig.aspectRatio = imageAspectRatio;
+						}
+						
+						imageConfig.imageSize = imageSize;
+						
+						config.imageConfig = imageConfig;
+					}
+
+					// Add grounding search tools if enabled (only for gemini-3-pro-image-preview)
+					if (model === 'gemini-3-pro-image-preview') {
+						const useGroundingSearch = this.getNodeParameter('useGroundingSearch', i, false) as boolean;
+						
+						if (useGroundingSearch) {
+							config.tools = [
+								{
+									googleSearch: {},
+								},
+							];
+						}
+					}
 
 					if (additionalOptions.temperature !== undefined) {
 						config.temperature = additionalOptions.temperature;
