@@ -510,18 +510,23 @@ export class Gemini implements INodeType {
 						config.personGeneration = personGeneration;
 					}
 
-					// Add audio generation setting
-					config.generateAudio = generateAudio;
-
 					// Build generate video payload
 					const generateVideoPayload: any = {
 						model: videoModel,
 						config,
 					};
 
-					// Add prompts if provided
-					if (videoPrompt && videoPrompt.trim()) {
-						generateVideoPayload.prompt = videoPrompt;
+					// Handle prompt with audio preference
+					let finalPrompt = videoPrompt && videoPrompt.trim() ? videoPrompt.trim() : '';
+					
+					// If audio is disabled, prepend silent instructions to prompt
+					if (!generateAudio && finalPrompt) {
+						finalPrompt = `[Silent film, no audio, no sound effects, no background music] ${finalPrompt}`;
+					}
+					
+					// Add prompt if provided
+					if (finalPrompt) {
+						generateVideoPayload.prompt = finalPrompt;
 					}
 
 					if (negativePrompt && negativePrompt.trim()) {
