@@ -1,6 +1,6 @@
 {
 	"name": "@prama13/n8n-nodes-nano-banana",
-	"version": "0.1.15",
+	"version": "0.1.16",
 	"description": "Nano Banana Pro Node for n8n",
 	"keywords": [
 		"n8n-community-node-package",
@@ -11,8 +11,8 @@
 	"license": "MIT",
 	"homepage": "https://github.com/pramaaditya/n8n-nodes-nano-banana#readme",
 	"author": {
-		"name": "Necto Pro",
-		"email": "admin@necto.pro"
+		"name": "Prama Aditya",
+		"email": "prama13@gmail.com"
 	},
 	"repository": {
 		"type": "git",

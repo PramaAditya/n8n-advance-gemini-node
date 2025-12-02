@@ -28,7 +28,7 @@ export class Gemini implements INodeType {
 		usableAsTool: true,
 		credentials: [
 			{
-				name: 'geminiApi',
+				name: 'googlePalmApi',
 				required: true,
 			},
 		],
@@ -449,7 +449,7 @@ export class Gemini implements INodeType {
 				const inputFormat = this.getNodeParameter('inputFormat', i) as string;
 
 				if (operation === 'generateContent') {
-					const credentials = await this.getCredentials('geminiApi', i);
+					const credentials = await this.getCredentials('googlePalmApi', i);
 					const responseModalities = this.getNodeParameter('responseModalities', i) as string[];
 					const additionalOptions = this.getNodeParameter('additionalOptions', i, {}) as any;
 
