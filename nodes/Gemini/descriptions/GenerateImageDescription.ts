@@ -1,24 +1,5 @@
 import { INodeProperties } from 'n8n-workflow';
 
-export const generateImageOperations: INodeProperties[] = [
-	{
-		displayName: 'Operation',
-		name: 'operation',
-		type: 'options',
-		noDataExpression: true,
-		options: [
-			{
-				name: 'Generate Image',
-				value: 'generateImage',
-				description: 'Generate text and images using Gemini models',
-				// eslint-disable-next-line n8n-nodes-base/node-param-operation-option-action-miscased
-				action: 'Generate image with Nano Banana',
-			},
-		],
-		default: 'generateImage',
-	},
-];
-
 export const generateImageFields: INodeProperties[] = [
 	{
 		displayName: 'Model',

@@ -10,8 +10,10 @@ import { NodeOperationError } from 'n8n-workflow';
 import { GoogleGenAI } from '@google/genai';
 import { ImageUtils } from './utils/imageUtils';
 import { S3Utils } from './utils/s3Utils';
+import { AudioUtils } from './utils/audioUtils';
 import { ulid } from 'ulid';
-import { generateImageFields, generateImageOperations } from './descriptions/GenerateImageDescription';
+import { generateImageFields } from './descriptions/GenerateImageDescription';
+import { generateTTSFields, maleVoices, femaleVoices, allVoices } from './descriptions/GenerateTextToSpeechDescription';
 
 export class Gemini implements INodeType {
 	description: INodeTypeDescription = {
@@ -40,8 +42,30 @@ export class Gemini implements INodeType {
 			},
 		],
 		properties: [
-			...generateImageOperations,
+			{
+				displayName: 'Operation',
+				name: 'operation',
+				type: 'options',
+				noDataExpression: true,
+				options: [
+					{
+						name: 'Generate Image',
+						value: 'generateImage',
+						description: 'Generate text and images using Gemini models',
+						// eslint-disable-next-line n8n-nodes-base/node-param-operation-option-action-miscased
+						action: 'Generate image with Nano Banana',
+					},
+					{
+						name: 'Generate TTS',
+						value: 'generateTTS',
+						description: 'Convert text to speech using Gemini TTS models',
+						action: 'Generate speech audio',
+					},
+				],
+				default: 'generateImage',
+			},
 			...generateImageFields,
+			...generateTTSFields,
 		],
 	};
 
@@ -52,9 +76,9 @@ export class Gemini implements INodeType {
 		for (let i = 0; i < items.length; i++) {
 			try {
 				const operation = this.getNodeParameter('operation', i) as string;
-				const model = this.getNodeParameter('model', i) as string;
 
 				if (operation === 'generateImage') {
+					const model = this.getNodeParameter('model', i) as string;
 					const credentials = await this.getCredentials('googlePalmApi', i);
 					const responseModalities = this.getNodeParameter('responseModalities', i) as string[];
 					const additionalOptions = this.getNodeParameter('additionalOptions', i, {}) as any;
@@ -261,6 +285,154 @@ export class Gemini implements INodeType {
 					}
 
 					returnData.push(responseData);
+				} else if (operation === 'generateTTS') {
+					const credentials = await this.getCredentials('googlePalmApi', i);
+					const ttsModel = this.getNodeParameter('ttsModel', i) as string;
+					const voiceInstruction = this.getNodeParameter('voiceInstruction', i) as string;
+					const voiceTranscript = this.getNodeParameter('voiceTranscript', i) as string;
+					const voiceMode = this.getNodeParameter('voiceMode', i) as string;
+					const additionalOptions = this.getNodeParameter('additionalOptions', i, {}) as any;
+
+					// Initialize Google GenAI
+					const ai = new GoogleGenAI({
+						apiKey: credentials.apiKey as string,
+					});
+
+					// Build config
+					const config: any = {
+						responseModalities: ['audio'],
+					};
+
+					// Add speech config based on voice mode
+					if (voiceMode === 'single') {
+						let voiceName = this.getNodeParameter('voiceName', i) as string;
+						
+						// Handle random voice selection
+						if (voiceName === '__random__') {
+							voiceName = allVoices[Math.floor(Math.random() * allVoices.length)];
+						} else if (voiceName === '__random_male__') {
+							voiceName = maleVoices[Math.floor(Math.random() * maleVoices.length)];
+						} else if (voiceName === '__random_female__') {
+							voiceName = femaleVoices[Math.floor(Math.random() * femaleVoices.length)];
+						}
+						
+						config.speechConfig = {
+							voiceConfig: {
+								prebuiltVoiceConfig: {
+									voiceName,
+								},
+							},
+						};
+					} else {
+						// Multi-speaker mode
+						const speakerVoices = this.getNodeParameter('speakerVoices.speakers', i, []) as any[];
+						const speakerVoiceConfigs = speakerVoices.map((speaker) => {
+							let voiceName = speaker.voiceName;
+							
+							// Handle random voice selection for each speaker
+							if (voiceName === '__random__') {
+								voiceName = allVoices[Math.floor(Math.random() * allVoices.length)];
+							} else if (voiceName === '__random_male__') {
+								voiceName = maleVoices[Math.floor(Math.random() * maleVoices.length)];
+							} else if (voiceName === '__random_female__') {
+								voiceName = femaleVoices[Math.floor(Math.random() * femaleVoices.length)];
+							}
+							
+							return {
+								speaker: speaker.speakerLabel,
+								voiceConfig: {
+									prebuiltVoiceConfig: {
+										voiceName,
+									},
+								},
+							};
+						});
+
+						config.speechConfig = {
+							multiSpeakerVoiceConfig: {
+								speakerVoiceConfigs,
+							},
+						};
+					}
+
+					if (additionalOptions.temperature !== undefined) {
+						config.temperature = additionalOptions.temperature;
+					}
+
+					// Build content with instruction and transcript
+					const textContent = `${voiceInstruction}\n${voiceTranscript}`;
+					const contents = [
+						{
+							role: 'user',
+							parts: [{ text: textContent }],
+						},
+					];
+
+					// Generate TTS using streaming
+					const response = await ai.models.generateContentStream({
+						model: ttsModel,
+						config,
+						contents,
+					});
+
+					const audioChunks: Buffer[] = [];
+					for await (const chunk of response) {
+						if (
+							chunk.candidates?.[0]?.content?.parts?.[0]?.inlineData
+						) {
+							const inlineData = chunk.candidates[0].content.parts[0].inlineData;
+							const rawData = inlineData.data || '';
+							const mimeType = inlineData.mimeType || '';
+
+							// Convert to WAV
+							const wavBuffer = AudioUtils.convertToWav(rawData, mimeType);
+							audioChunks.push(wavBuffer);
+						}
+					}
+
+					// Combine all audio chunks
+					const finalAudio = Buffer.concat(audioChunks);
+
+					// Handle output (S3 or binary)
+					const result: any = {
+						model: ttsModel,
+						voiceMode,
+						audioFormat: 'audio/wav',
+					};
+
+					if (this.getNodeParameter('uploadToS3', i, false)) {
+						const bucketName = this.getNodeParameter('s3BucketName', i) as string;
+						
+						const s3Url = await S3Utils.uploadToS3(
+							this,
+							finalAudio,
+							'audio/wav',
+							bucketName,
+							`${operation}/tts_${ulid()}`
+						);
+						
+						result.audioUrl = s3Url;
+						result.fileName = s3Url.split('/').pop();
+
+						returnData.push({
+							json: result,
+							pairedItem: { item: i },
+						});
+					} else {
+						const fileName = `tts_${ulid()}`;
+						
+						returnData.push({
+							json: result,
+							binary: {
+								data: {
+									data: finalAudio.toString('base64'),
+									mimeType: 'audio/wav',
+									fileName: `${fileName}.wav`,
+								},
+							},
+							pairedItem: { item: i },
+						});
+					}
 				}
 			} catch (error) {
 				// Sanitize error message to prevent binary data leakage
