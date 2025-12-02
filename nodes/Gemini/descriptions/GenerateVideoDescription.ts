@@ -211,7 +211,7 @@ export const generateVideoFields: INodeProperties[] = [
 			},
 		},
 		default: true,
-		description: 'Whether to generate audio. When disabled, adds "silent film, no audio, no sound effects, no background music" instructions to the prompt',
+		description: 'Whether to generate audio. When disabled, adds "silent film, no audio, no sound effects, no background music" instructions to the prompt.',
 	},
 	// Frames to Video Mode Parameters
 	{
