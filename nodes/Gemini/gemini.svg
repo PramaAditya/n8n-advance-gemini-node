@@ -1,44 +1,23 @@
 <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Background with gradient -->
-  <defs>
-    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#4285F4;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#8AB4F8;stop-opacity:1" />
-    </linearGradient>
-    <linearGradient id="sparkleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#E8F0FE;stop-opacity:0.9" />
-    </linearGradient>
-  </defs>
-  
-  <!-- Rounded rectangle background -->
-  <rect width="60" height="60" rx="12" fill="url(#bgGradient)"/>
-  
-  <!-- Main sparkle star (larger) -->
-  <g transform="translate(30, 25)">
-    <!-- Vertical beam -->
-    <path d="M 0,-8 L 1.5,-2 L 1.5,2 L 0,8 L -1.5,2 L -1.5,-2 Z" fill="url(#sparkleGradient)"/>
-    <!-- Horizontal beam -->
-    <path d="M -8,0 L -2,-1.5 L 2,-1.5 L 8,0 L 2,1.5 L -2,1.5 Z" fill="url(#sparkleGradient)"/>
-    <!-- Diagonal beam (top-left to bottom-right) -->
-    <path d="M -5.7,-5.7 L -2.1,-2.1 L 0,-1.4 L 2.1,-2.1 L 5.7,-5.7 L 4.3,-4.3 L 1.4,0 L 4.3,4.3 L 5.7,5.7 L 2.1,2.1 L 0,1.4 L -2.1,2.1 L -5.7,5.7 L -4.3,4.3 L -1.4,0 L -4.3,-4.3 Z" fill="url(#sparkleGradient)" opacity="0.7"/>
-    <!-- Center glow -->
-    <circle cx="0" cy="0" r="2.5" fill="white"/>
-  </g>
-  
-  <!-- Secondary sparkle star (smaller, bottom-right) -->
-  <g transform="translate(42, 40)">
-    <!-- Vertical beam -->
-    <path d="M 0,-5 L 1,-1.5 L 1,1.5 L 0,5 L -1,1.5 L -1,-1.5 Z" fill="white" opacity="0.8"/>
-    <!-- Horizontal beam -->
-    <path d="M -5,0 L -1.5,-1 L 1.5,-1 L 5,0 L 1.5,1 L -1.5,1 Z" fill="white" opacity="0.8"/>
-    <!-- Center dot -->
-    <circle cx="0" cy="0" r="1.2" fill="white"/>
-  </g>
-  
-  <!-- Tertiary sparkle (tiny, top-left) -->
-  <g transform="translate(18, 18)">
-    <path d="M 0,-3 L 0.5,-1 L 0.5,1 L 0,3 L -0.5,1 L -0.5,-1 Z" fill="white" opacity="0.6"/>
-    <path d="M -3,0 L -1,-0.5 L 1,-0.5 L 3,0 L 1,0.5 L -1,0.5 Z" fill="white" opacity="0.6"/>
-  </g>
+    <defs>
+        <linearGradient id="bg_grad" x1="0" y1="0" x2="60" y2="60" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#1A1A2E"/>
+            <stop offset="100%" stop-color="#16213E"/>
+        </linearGradient>
+        <linearGradient id="star_grad" x1="10" y1="10" x2="50" y2="50" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#00C9FF"/>
+            <stop offset="50%" stop-color="#92FE9D"/>
+            <stop offset="100%" stop-color="#F857A6"/>
+        </linearGradient>
+    </defs>
+    
+    <!-- Rounded Container Box with subtle border -->
+    <rect x="2" y="2" width="56" height="56" rx="14" fill="url(#bg_grad)" stroke="#4facfe" stroke-width="1.5" stroke-opacity="0.3"/>
+    
+    <!-- Advanced Star Shape: Sharper, with a 'core' -->
+    <path d="M30 13C33.5 22.5 37.5 26.5 47 30C37.5 33.5 33.5 37.5 30 47C26.5 37.5 22.5 33.5 13 30C22.5 26.5 26.5 22.5 30 13Z" fill="url(#star_grad)"/>
+    
+    <!-- Tech/Pro Accents -->
+    <circle cx="30" cy="30" r="3" fill="white" fill-opacity="0.9"/>
+    <path d="M30 8V10 M30 50V52 M50 30H52 M8 30H10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-opacity="0.4"/>
 </svg>

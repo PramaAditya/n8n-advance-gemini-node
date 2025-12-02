@@ -1,7 +1,7 @@
 {
-	"name": "@prama13/n8n-nodes-nano-banana",
-	"version": "0.1.16",
-	"description": "Nano Banana Pro Node for n8n",
+	"name": "@prama13/n8n-advance-gemini-node",
+	"version": "0.1.1",
+	"description": "Advanced Gemini Node for n8n - Unlock the full potential of Gemini AI with advanced image generation capabilities in n8n workflows.",
 	"keywords": [
 		"n8n-community-node-package",
 		"ai",
@@ -9,14 +9,14 @@
 		"nano banana"
 	],
 	"license": "MIT",
-	"homepage": "https://github.com/pramaaditya/n8n-nodes-nano-banana#readme",
+	"homepage": "https://github.com/pramaaditya/n8n-advance-gemini-node#readme",
 	"author": {
 		"name": "Prama Aditya",
 		"email": "prama13@gmail.com"
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/pramaaditya/n8n-nodes-nano-banana.git"
+		"url": "git+https://github.com/pramaaditya/n8n-advance-gemini-node.git"
 	},
 	"engines": {
 		"node": ">=20.15"
@@ -58,6 +58,6 @@
 		"n8n-workflow": "*"
 	},
 	"bugs": {
-		"url": "https://github.com/pramaaditya/n8n-nodes-nano-banana/issues"
+		"url": "https://github.com/pramaaditya/n8n-advance-gemini-node/issues"
 	}
 }
