@@ -290,21 +290,24 @@ export class Gemini implements INodeType {
 				},
 				options: [
 					{
-						name: 'Auto',
-						value: '',
-						description: 'Let the model decide the aspect ratio automatically',
-					},
-					{
 						name: '1:1 (Square)',
 						value: '1:1',
 					},
 					{
-						name: '9:16 (Vertical)',
-						value: '9:16',
-					},
-					{
 						name: '16:9 (Horizontal)',
 						value: '16:9',
+					},
+					{
+						name: '2:3 (Portrait)',
+						value: '2:3',
+					},
+					{
+						name: '21:9 (Ultra Wide)',
+						value: '21:9',
+					},
+					{
+						name: '3:2 (Landscape)',
+						value: '3:2',
 					},
 					{
 						name: '3:4 (Portrait)',
@@ -315,14 +318,6 @@ export class Gemini implements INodeType {
 						value: '4:3',
 					},
 					{
-						name: '2:3 (Portrait)',
-						value: '2:3',
-					},
-					{
-						name: '3:2 (Landscape)',
-						value: '3:2',
-					},
-					{
 						name: '4:5 (Portrait)',
 						value: '4:5',
 					},
@@ -331,8 +326,13 @@ export class Gemini implements INodeType {
 						value: '5:4',
 					},
 					{
-						name: '21:9 (Ultra Wide)',
-						value: '21:9',
+						name: '9:16 (Vertical)',
+						value: '9:16',
+					},
+					{
+						name: 'Auto',
+						value: '',
+						description: 'Let the model decide the aspect ratio automatically',
 					},
 				],
 				default: '',
@@ -379,7 +379,7 @@ export class Gemini implements INodeType {
 					},
 				},
 				default: false,
-				description: 'Enable grounding search to ground image generation with real-world knowledge (only available for Nano Banana Pro)',
+				description: 'Whether to enable grounding search to ground image generation with real-world knowledge (only available for Nano Banana Pro)',
 			},
 
 			{
