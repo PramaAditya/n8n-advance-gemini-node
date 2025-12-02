@@ -49,6 +49,7 @@ export class Gemini implements INodeType {
 						name: 'Generate Image',
 						value: 'generateContent',
 						description: 'Generate text and images using Gemini models',
+						// eslint-disable-next-line n8n-nodes-base/node-param-operation-option-action-miscased
 						action: 'Generate image with Nano Banana',
 					},
 				],
@@ -375,6 +376,19 @@ export class Gemini implements INodeType {
 				description: 'Resolution for the generated image',
 			},
 			{
+				displayName: 'Use Grounding Search',
+				name: 'useGroundingSearch',
+				type: 'boolean',
+				displayOptions: {
+					show: {
+						operation: ['generateContent'],
+						model: ['gemini-3-pro-image-preview'],
+					},
+				},
+				default: false,
+				description: 'Whether to enable grounding search to ground image generation with real-world knowledge (only available for Nano Banana Pro)',
+			},
+			{
 				displayName: 'Upload to S3',
 				name: 'uploadToS3',
 				type: 'boolean',
@@ -401,19 +415,6 @@ export class Gemini implements INodeType {
 				default: '',
 				description: 'Name of the S3 bucket to upload to',
 				required: true,
-			},
-			{
-				displayName: 'Use Grounding Search',
-				name: 'useGroundingSearch',
-				type: 'boolean',
-				displayOptions: {
-					show: {
-						operation: ['generateContent'],
-						model: ['gemini-3-pro-image-preview'],
-					},
-				},
-				default: false,
-				description: 'Whether to enable grounding search to ground image generation with real-world knowledge (only available for Nano Banana Pro)',
 			},
 
 			{
