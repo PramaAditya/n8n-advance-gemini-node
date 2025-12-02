@@ -326,17 +326,39 @@ export class Gemini implements INodeType {
 					} else {
 						// Multi-speaker mode
 						const speakerVoices = this.getNodeParameter('speakerVoices.speakers', i, []) as any[];
+						const usedVoices = new Set<string>();
+						
 						const speakerVoiceConfigs = speakerVoices.map((speaker) => {
 							let voiceName = speaker.voiceName;
 							
 							// Handle random voice selection for each speaker
 							if (voiceName === '__random__') {
-								voiceName = allVoices[Math.floor(Math.random() * allVoices.length)];
+								// Filter out already used voices
+								const availableVoices = allVoices.filter(v => !usedVoices.has(v));
+								if (availableVoices.length === 0) {
+									// Fallback if all voices are used (shouldn't happen with 30 voices)
+									voiceName = allVoices[Math.floor(Math.random() * allVoices.length)];
+								} else {
+									voiceName = availableVoices[Math.floor(Math.random() * availableVoices.length)];
+								}
 							} else if (voiceName === '__random_male__') {
-								voiceName = maleVoices[Math.floor(Math.random() * maleVoices.length)];
+								const availableMaleVoices = maleVoices.filter(v => !usedVoices.has(v));
+								if (availableMaleVoices.length === 0) {
+									voiceName = maleVoices[Math.floor(Math.random() * maleVoices.length)];
+								} else {
+									voiceName = availableMaleVoices[Math.floor(Math.random() * availableMaleVoices.length)];
+								}
 							} else if (voiceName === '__random_female__') {
-								voiceName = femaleVoices[Math.floor(Math.random() * femaleVoices.length)];
+								const availableFemaleVoices = femaleVoices.filter(v => !usedVoices.has(v));
+								if (availableFemaleVoices.length === 0) {
+									voiceName = femaleVoices[Math.floor(Math.random() * femaleVoices.length)];
+								} else {
+									voiceName = availableFemaleVoices[Math.floor(Math.random() * availableFemaleVoices.length)];
+								}
 							}
+							
+							// Track this voice as used
+							usedVoices.add(voiceName);
 							
 							return {
 								speaker: speaker.speakerLabel,
