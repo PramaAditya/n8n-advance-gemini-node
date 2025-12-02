@@ -11,9 +11,11 @@ import { GoogleGenAI } from '@google/genai';
 import { ImageUtils } from './utils/imageUtils';
 import { S3Utils } from './utils/s3Utils';
 import { AudioUtils } from './utils/audioUtils';
+import { VideoUtils } from './utils/videoUtils';
 import { ulid } from 'ulid';
 import { generateImageFields } from './descriptions/GenerateImageDescription';
 import { generateTTSFields, maleVoices, femaleVoices, allVoices } from './descriptions/GenerateTextToSpeechDescription';
+import { generateVideoFields } from './descriptions/GenerateVideoDescription';
 
 export class Gemini implements INodeType {
 	description: INodeTypeDescription = {
@@ -61,11 +63,18 @@ export class Gemini implements INodeType {
 						description: 'Convert text to speech using Gemini TTS models',
 						action: 'Generate speech audio',
 					},
+					{
+						name: 'Generate Video',
+						value: 'generateVideo',
+						description: 'Generate videos using Veo models',
+						action: 'Generate video with veo',
+					},
 				],
 				default: 'generateImage',
 			},
 			...generateImageFields,
 			...generateTTSFields,
+			...generateVideoFields,
 		],
 	};
 
@@ -455,6 +464,239 @@ export class Gemini implements INodeType {
 							pairedItem: { item: i },
 						});
 					}
+				} else if (operation === 'generateVideo') {
+					const credentials = await this.getCredentials('googlePalmApi', i);
+					const videoModel = this.getNodeParameter('videoModel', i) as string;
+					const generationMode = this.getNodeParameter('generationMode', i) as string;
+					const videoPrompt = this.getNodeParameter('videoPrompt', i, '') as string;
+					const negativePrompt = this.getNodeParameter('negativePrompt', i, '') as string;
+					const resolution = this.getNodeParameter('resolution', i) as string;
+					const durationSeconds = parseInt(this.getNodeParameter('durationSeconds', i, '8') as string, 10);
+					const personGeneration = this.getNodeParameter('personGeneration', i, '') as string;
+					const generateAudio = this.getNodeParameter('generateAudio', i, true) as boolean;
+					const s3BucketName = this.getNodeParameter('s3BucketName', i) as string;
+					const s3PathPrefix = this.getNodeParameter('s3PathPrefix', i, 'videos/generated') as string;
+					const additionalOptions = this.getNodeParameter('additionalOptions', i, {}) as any;
+
+					// Validate parameters based on mode
+					VideoUtils.validateParameters(this, generationMode, {
+						videoPrompt,
+						startFrameUrl: generationMode === 'framesToVideo' ? this.getNodeParameter('startFrameUrl', i, '') : '',
+						referenceImages: generationMode === 'referencesToVideo' ? this.getNodeParameter('referenceImages.images', i, []) : [],
+						inputVideoUri: generationMode === 'extendVideo' ? this.getNodeParameter('inputVideoUri', i, '') : '',
+					});
+
+					// Initialize Google GenAI
+					const ai = new GoogleGenAI({
+						apiKey: credentials.apiKey as string,
+					});
+
+					// Build config
+					const aspectRatio = generationMode !== 'extendVideo' 
+						? this.getNodeParameter('aspectRatio', i) as string
+						: undefined;
+
+					const config: any = VideoUtils.buildVideoConfig({
+						resolution,
+						aspectRatio,
+						numberOfVideos: 1,
+					});
+
+					// Add duration as number
+					config.durationSeconds = durationSeconds;
+
+					// Add person generation if specified
+					if (personGeneration) {
+						config.personGeneration = personGeneration;
+					}
+
+					// Add audio generation setting
+					config.generateAudio = generateAudio;
+
+					// Build generate video payload
+					const generateVideoPayload: any = {
+						model: videoModel,
+						config,
+					};
+
+					// Add prompts if provided
+					if (videoPrompt && videoPrompt.trim()) {
+						generateVideoPayload.prompt = videoPrompt;
+					}
+
+					if (negativePrompt && negativePrompt.trim()) {
+						generateVideoPayload.negativePrompt = negativePrompt;
+					}
+
+					// Handle different generation modes
+					if (generationMode === 'framesToVideo') {
+						const startFrameUrl = this.getNodeParameter('startFrameUrl', i) as string;
+						const enableLooping = this.getNodeParameter('enableLooping', i, false) as boolean;
+						const endFrameUrl = this.getNodeParameter('endFrameUrl', i, '') as string;
+
+						// Process start frame
+						const startFrame = await VideoUtils.fetchImageForVideo(this, startFrameUrl);
+						generateVideoPayload.image = startFrame;
+
+						// Process end frame (or use start frame for looping)
+						const finalEndFrameUrl = enableLooping ? startFrameUrl : endFrameUrl;
+						if (finalEndFrameUrl && finalEndFrameUrl.trim()) {
+							const endFrame = await VideoUtils.fetchImageForVideo(this, finalEndFrameUrl);
+							generateVideoPayload.config.lastFrame = endFrame;
+						}
+					} else if (generationMode === 'referencesToVideo') {
+						const referenceImagesData = this.getNodeParameter('referenceImages.images', i, []) as any[];
+						const styleImageUrl = this.getNodeParameter('styleImageUrl', i, '') as string;
+
+						const referenceImagesPayload: any[] = [];
+
+						// Add reference images (assets)
+						for (const refImg of referenceImagesData) {
+							if (refImg.imageUrl && refImg.imageUrl.trim()) {
+								const image = await VideoUtils.fetchImageForVideo(this, refImg.imageUrl);
+								referenceImagesPayload.push({
+									image,
+									referenceType: 'ASSET',
+								});
+							}
+						}
+
+						// Add style image if provided
+						if (styleImageUrl && styleImageUrl.trim()) {
+							const styleImage = await VideoUtils.fetchImageForVideo(this, styleImageUrl);
+							referenceImagesPayload.push({
+								image: styleImage,
+								referenceType: 'STYLE',
+							});
+						}
+
+						if (referenceImagesPayload.length > 0) {
+							generateVideoPayload.config.referenceImages = referenceImagesPayload;
+						}
+					} else if (generationMode === 'extendVideo') {
+						const inputVideoUri = this.getNodeParameter('inputVideoUri', i) as string;
+						const videoObject = VideoUtils.createVideoObject(inputVideoUri);
+						generateVideoPayload.video = videoObject;
+					}
+
+					// Start video generation
+					let operation = await ai.models.generateVideos(generateVideoPayload);
+
+					// Polling configuration
+					const pollingInterval = (additionalOptions.pollingInterval || 10) * 1000; // Convert to ms
+					const maxWaitTime = (additionalOptions.maxWaitTime || 30) * 60 * 1000; // Convert to ms
+					const startTime = Date.now();
+
+					// Poll until video generation is complete
+					while (!operation.done) {
+						// Check timeout
+						if (Date.now() - startTime > maxWaitTime) {
+							throw new NodeOperationError(
+								this.getNode(),
+								`Video generation timed out after ${additionalOptions.maxWaitTime || 30} minutes`,
+								{ itemIndex: i },
+							);
+						}
+
+						// Wait for polling interval
+						await new Promise((resolve) => setTimeout(resolve, pollingInterval));
+
+						// Get updated operation status
+						operation = await ai.operations.getVideosOperation({ operation });
+					}
+
+					// Check if generation was successful
+					if (!operation.response || !operation.response.generatedVideos || operation.response.generatedVideos.length === 0) {
+						throw new NodeOperationError(
+							this.getNode(),
+							'No videos were generated',
+							{ itemIndex: i },
+						);
+					}
+
+					const firstVideo = operation.response.generatedVideos[0];
+					if (!firstVideo?.video?.uri) {
+						throw new NodeOperationError(
+							this.getNode(),
+							'Generated video is missing URI',
+							{ itemIndex: i },
+						);
+					}
+
+					const videoObject = firstVideo.video;
+					const videoUri = videoObject.uri ? decodeURIComponent(videoObject.uri) : '';
+					
+					if (!videoUri) {
+						throw new NodeOperationError(
+							this.getNode(),
+							'Generated video URI is empty',
+							{ itemIndex: i },
+						);
+					}
+
+					// Fetch the video from Gemini
+					const videoResponse = await this.helpers.httpRequest({
+						method: 'GET',
+						url: `${videoUri}&key=${credentials.apiKey}`,
+						returnFullResponse: true,
+						encoding: 'arraybuffer',
+					});
+
+					// Ensure we have a Buffer
+					let videoBuffer: Buffer;
+					if (Buffer.isBuffer(videoResponse.body)) {
+						videoBuffer = videoResponse.body;
+					} else if (typeof videoResponse.body === 'string') {
+						videoBuffer = Buffer.from(videoResponse.body, 'binary');
+					} else {
+						videoBuffer = Buffer.from(videoResponse.body);
+					}
+
+					// Upload to S3
+					const s3Url = await S3Utils.uploadToS3(
+						this,
+						videoBuffer,
+						'video/mp4',
+						s3BucketName,
+						`${s3PathPrefix}/veo_${ulid()}`,
+					);
+
+					// Prepare result
+					const result: any = {
+						videoUrl: s3Url,
+						fileName: s3Url.split('/').pop(),
+						model: videoModel,
+						resolution,
+						generationMode,
+						geminiVideoUri: videoObject.uri,
+					};
+
+					if (aspectRatio) {
+						result.aspectRatio = aspectRatio;
+					}
+
+					if (videoPrompt) {
+						result.prompt = videoPrompt;
+					}
+
+					if (negativePrompt) {
+						result.negativePrompt = negativePrompt;
+					}
+
+					if (durationSeconds) {
+						result.durationSeconds = durationSeconds;
+					}
+
+					if (personGeneration) {
+						result.personGeneration = personGeneration;
+					}
+
+					result.generateAudio = generateAudio;
+
+					returnData.push({
+						json: result,
+						pairedItem: { item: i },
+					});
 				}
 			} catch (error) {
 				// Sanitize error message to prevent binary data leakage
