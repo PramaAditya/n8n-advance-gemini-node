@@ -148,6 +148,21 @@ export const generateImageFields: INodeProperties[] = [
 						},
 						default: '',
 					},
+					{
+						displayName: 'Definition',
+						name: 'definition',
+						type: 'string',
+						displayOptions: {
+							show: {
+								role: ['user'],
+							},
+						},
+						default: '',
+						description: 'Optional definition that will be included in the INPUT DEFINITIONS section of the prompt. Images will be referenced as [IMAGE_N] and text as [TEXT_N]. Use to describe what this input represents (e.g., "Reference image for clothing style", "Subject identity photo")',
+						typeOptions: {
+							rows: 2,
+						},
+					},
 				],
 			},
 		],

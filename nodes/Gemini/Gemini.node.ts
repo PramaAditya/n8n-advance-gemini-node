@@ -102,7 +102,12 @@ export class Gemini implements INodeType {
 
 					// Handle manual mapping format (existing functionality)
 					const messageHistory = this.getNodeParameter('messageHistory.messages', i, []) as any[];
-					const currentMessage = this.getNodeParameter('currentMessage', i) as string;
+					let currentMessage = this.getNodeParameter('currentMessage', i) as string;
+
+					// Track definitions from user role messages
+					const definitions: Array<{ key: string; definition: string }> = [];
+					let imageCount = 0;
+					let textCount = 0;
 
 					// Add message history
 					for (const message of messageHistory) {
@@ -110,6 +115,15 @@ export class Gemini implements INodeType {
 
 						if (message.contentType === 'text' && message.text) {
 							parts.push({ text: message.text });
+							
+							// Track text definition if this is a user message
+							if (message.role === 'user' && message.definition && message.definition.trim()) {
+								textCount++;
+								definitions.push({
+									key: `[TEXT_${textCount}]`,
+									definition: message.definition.trim(),
+								});
+							}
 						} else if (
 							message.contentType === 'imageUrl' ||
 							message.contentType === 'imageBase64'
@@ -117,6 +131,15 @@ export class Gemini implements INodeType {
 							try {
 								const geminiPart = await ImageUtils.createGeminiPart(this, message);
 								parts.push(geminiPart);
+								
+								// Track image definition if this is a user message
+								if (message.role === 'user' && message.definition && message.definition.trim()) {
+									imageCount++;
+									definitions.push({
+										key: `[IMAGE_${imageCount}]`,
+										definition: message.definition.trim(),
+									});
+								}
 							} catch (error) {
 								throw new NodeOperationError(
 									this.getNode(),
@@ -133,6 +156,19 @@ export class Gemini implements INodeType {
 								parts,
 							});
 						}
+					}
+
+					// Build INPUT DEFINITIONS block if there are any definitions
+					if (definitions.length > 0) {
+						const definitionsBlock = [
+							'INPUT DEFINITIONS:',
+							...definitions.map(def => `\`${def.key}\` : ${def.definition}`),
+							'---',
+							'',
+						].join('\n');
+						
+						// Prepend definitions to current message
+						currentMessage = definitionsBlock + currentMessage;
 					}
 
 					// Add current message

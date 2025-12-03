@@ -43,7 +43,8 @@ When using JSON format, provide a JSON object with the following structure:
       "contentType": "imageUrl",
       "imageUrl": "https://example.com/image.jpg",
       "mimeType": "image/jpeg",
-      "role": "user"
+      "role": "user",
+      "definition": "Reference image for style analysis"
     },
     {
       "contentType": "text",
@@ -53,6 +54,59 @@ When using JSON format, provide a JSON object with the following structure:
   ],
   "currentMessage": "Can you describe the colors in more detail?"
 }
+```
+
+### Input Definitions
+
+You can add optional `definition` fields to user role messages in the message history. These definitions will be automatically collected and injected at the start of your prompt in the following format:
+
+```
+INPUT DEFINITIONS:
+`[IMAGE_1]` : [definition of the first user's image]
+`[TEXT_1]` : [definition of the first user's text message with definition]
+`[IMAGE_2]` : [definition of the second user's image]
+---
+[Your current message]
+```
+
+**Example with definitions:**
+
+```json
+{
+  "messageHistory": [
+    {
+      "contentType": "imageUrl",
+      "imageUrl": "https://example.com/outfit.jpg",
+      "mimeType": "image/jpeg",
+      "role": "user",
+      "definition": "Reference outfit - Indian Kurti set for styling"
+    },
+    {
+      "contentType": "imageUrl",
+      "imageUrl": "https://example.com/model.jpg",
+      "mimeType": "image/jpeg",
+      "role": "user",
+      "definition": "Subject identity - facial features and body proportions"
+    },
+    {
+      "contentType": "text",
+      "text": "Previous generation attempt",
+      "role": "user",
+      "definition": "Context notes about previous requirements"
+    }
+  ],
+  "currentMessage": "Generate a new image using [IMAGE_1] outfit on the subject from [IMAGE_2]"
+}
+```
+
+This will produce a prompt like:
+```
+INPUT DEFINITIONS:
+`[IMAGE_1]` : Reference outfit - Indian Kurti set for styling
+`[IMAGE_2]` : Subject identity - facial features and body proportions
+`[TEXT_1]` : Context notes about previous requirements
+---
+Generate a new image using [IMAGE_1] outfit on the subject from [IMAGE_2]
 ```
 
 ### Basic Text Generation
