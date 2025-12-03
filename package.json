@@ -1,6 +1,6 @@
 {
 	"name": "@prama13/n8n-nodes-advance-gemini",
-	"version": "0.3.0",
+	"version": "0.3.1",
 	"description": "Advanced Gemini Node for n8n - Unlock the full potential of Gemini AI with advanced image generation capabilities in n8n workflows.",
 	"keywords": [
 		"n8n-community-node-package",
