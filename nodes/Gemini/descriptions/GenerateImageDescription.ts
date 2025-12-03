@@ -63,14 +63,16 @@ export const generateImageFields: INodeProperties[] = [
 						default: 'text',
 					},
 					{
+						displayName: 'Definition',
+						name: 'definition',
+						type: 'string',
+						default: '',
+						description: 'Optional definition that will be included in the INPUT DEFINITIONS section of the prompt. Images will be referenced as	[IMAGE_N]	and text as	[TEXT_N]. Use to describe what this input represents (e.g., \'Reference image for clothing style\', \'Subject identity photo\')',
+					},
+					{
 						displayName: 'Image Base64',
 						name: 'imageBase64',
 						type: 'string',
-						displayOptions: {
-							show: {
-								contentType: ['imageBase64'],
-							},
-						},
 						default: '',
 						description: 'Base64 encoded image data (without data:image prefix)',
 					},
@@ -78,11 +80,6 @@ export const generateImageFields: INodeProperties[] = [
 						displayName: 'Image URL',
 						name: 'imageUrl',
 						type: 'string',
-						displayOptions: {
-							show: {
-								contentType: ['imageUrl'],
-							},
-						},
 						default: '',
 						description: 'URL of the image to include in the message',
 					},
@@ -90,11 +87,6 @@ export const generateImageFields: INodeProperties[] = [
 						displayName: 'MIME Type',
 						name: 'mimeType',
 						type: 'options',
-						displayOptions: {
-							show: {
-								contentType: ['imageUrl', 'imageBase64'],
-							},
-						},
 						options: [
 							{
 								name: 'Auto-Detect (Recommended)',
@@ -116,10 +108,9 @@ export const generateImageFields: INodeProperties[] = [
 								name: 'WebP',
 								value: 'image/webp',
 							},
-						],
+					],
 						default: '',
-						description:
-							'MIME type of the image. Leave empty for auto-detection (recommended for URLs).',
+						description: 'MIME type of the image. Leave empty for auto-detection (recommended for URLs).',
 					},
 					{
 						displayName: 'Role',
@@ -134,36 +125,16 @@ export const generateImageFields: INodeProperties[] = [
 								name: 'Model',
 								value: 'model',
 							},
-						],
+					],
 						default: 'user',
 					},
 					{
 						displayName: 'Text',
 						name: 'text',
 						type: 'string',
-						displayOptions: {
-							show: {
-								contentType: ['text'],
-							},
-						},
 						default: '',
 					},
-					{
-						displayName: 'Definition',
-						name: 'definition',
-						type: 'string',
-						displayOptions: {
-							show: {
-								role: ['user'],
-							},
-						},
-						default: '',
-						description: 'Optional definition that will be included in the INPUT DEFINITIONS section of the prompt. Images will be referenced as [IMAGE_N] and text as [TEXT_N]. Use to describe what this input represents (e.g., "Reference image for clothing style", "Subject identity photo")',
-						typeOptions: {
-							rows: 2,
-						},
-					},
-				],
+			],
 			},
 		],
 	},
