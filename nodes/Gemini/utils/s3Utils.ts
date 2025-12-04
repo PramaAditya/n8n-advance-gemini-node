@@ -15,6 +15,7 @@ export class S3Utils {
 		bucketName: string,
 		fileNamePrefix: string = 'img',
 		maxRetries: number = 5,
+		publicDomain?: string,
 	): Promise<string> {
 		const credentials = await executeFunctions.getCredentials('s3');
 		
@@ -63,26 +64,29 @@ export class S3Utils {
 			try {
 				await upload.done();
 				
-				// Construct public URL
-				// If endpoint is custom (e.g. MinIO, DigitalOcean), construct URL accordingly
+				// If public domain is provided, use it; otherwise construct standard S3 URL
 				let publicUrl = '';
-				if (endpoint) {
-					// Handle custom endpoints
-					const cleanEndpoint = endpoint.replace(/\/$/, '');
-					if (forcePathStyle) {
-						publicUrl = `${cleanEndpoint}/${bucketName}/${fileName}`;
-					} else {
-						// Virtual-hosted style: http://bucket.endpoint/key
-						// But this depends on the provider. Most custom providers with forcePathStyle=false use bucket.endpoint
-						// However, safe bet for generic S3 is often path style if explicitly requested, or standard AWS format.
-						// Let's assume standard behavior:
-						const protocol = cleanEndpoint.split('://')[0];
-						const domain = cleanEndpoint.split('://')[1];
-						publicUrl = `${protocol}://${bucketName}.${domain}/${fileName}`;
-					}
+				if (publicDomain && publicDomain.trim()) {
+					// Use custom public domain - replace the S3 domain with the custom domain
+					const cleanDomain = publicDomain.replace(/\/$/, '');
+					publicUrl = `${cleanDomain}/${fileName}`;
 				} else {
-					// Standard AWS S3
-					publicUrl = `https://${bucketName}.s3.${region}.amazonaws.com/${fileName}`;
+					// Construct standard S3 URL (original behavior)
+					if (endpoint) {
+						// Handle custom endpoints
+						const cleanEndpoint = endpoint.replace(/\/$/, '');
+						if (forcePathStyle) {
+							publicUrl = `${cleanEndpoint}/${bucketName}/${fileName}`;
+						} else {
+							// Virtual-hosted style: http://bucket.endpoint/key
+							const protocol = cleanEndpoint.split('://')[0];
+							const domain = cleanEndpoint.split('://')[1];
+							publicUrl = `${protocol}://${bucketName}.${domain}/${fileName}`;
+						}
+					} else {
+						// Standard AWS S3
+						publicUrl = `https://${bucketName}.s3.${region}.amazonaws.com/${fileName}`;
+					}
 				}
 				
 				return publicUrl;

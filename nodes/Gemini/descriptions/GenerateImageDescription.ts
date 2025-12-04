@@ -336,6 +336,21 @@ export const generateImageFields: INodeProperties[] = [
 		required: true,
 	},
 	{
+		displayName: 'S3 Public Domain',
+		name: 's3PublicDomain',
+		type: 'string',
+		displayOptions: {
+			show: {
+				operation: ['generateImage'],
+				responseModalities: ['IMAGE'],
+				uploadToS3: [true],
+			},
+		},
+		default: '',
+		description: 'Optional public domain URL (e.g., https://cdn.example.com). If provided, the final URL will be [public_domain]/path/to/file.ext instead of the default S3 URL.',
+		placeholder: 'https://cdn.example.com',
+	},
+	{
 		displayName: 'Additional Options',
 		name: 'additionalOptions',
 		type: 'collection',

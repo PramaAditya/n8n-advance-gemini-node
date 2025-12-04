@@ -251,6 +251,7 @@ export class Gemini implements INodeType {
 									
 									if (this.getNodeParameter('uploadToS3', i, false)) {
 										const bucketName = this.getNodeParameter('s3BucketName', i) as string;
+										const s3PublicDomain = this.getNodeParameter('s3PublicDomain', i, '') as string;
 										const buffer = Buffer.from(data, 'base64');
 										
 										const s3Url = await S3Utils.uploadToS3(
@@ -258,7 +259,9 @@ export class Gemini implements INodeType {
 											buffer,
 											mimeType,
 											bucketName,
-											`${operation}/gemini_${ulid()}_${fileIndex++}`
+											`${operation}/gemini_${ulid()}_${fileIndex++}`,
+											5,
+											s3PublicDomain
 										);
 										
 										generatedImages.push({
@@ -469,13 +472,16 @@ export class Gemini implements INodeType {
 
 					if (this.getNodeParameter('uploadToS3', i, false)) {
 						const bucketName = this.getNodeParameter('s3BucketName', i) as string;
+						const s3PublicDomain = this.getNodeParameter('s3PublicDomain', i, '') as string;
 						
 						const s3Url = await S3Utils.uploadToS3(
 							this,
 							finalAudio,
 							'audio/wav',
 							bucketName,
-							`${operation}/tts_${ulid()}`
+							`${operation}/tts_${ulid()}`,
+							5,
+							s3PublicDomain
 						);
 						
 						result.audioUrl = s3Url;
@@ -511,7 +517,6 @@ export class Gemini implements INodeType {
 					const personGeneration = this.getNodeParameter('personGeneration', i, '') as string;
 					const generateAudio = this.getNodeParameter('generateAudio', i, true) as boolean;
 					const s3BucketName = this.getNodeParameter('s3BucketName', i) as string;
-					const s3PathPrefix = this.getNodeParameter('s3PathPrefix', i, 'videos/generated') as string;
 					const additionalOptions = this.getNodeParameter('additionalOptions', i, {}) as any;
 
 					// Validate parameters based on mode
@@ -694,12 +699,15 @@ export class Gemini implements INodeType {
 					}
 
 					// Upload to S3
+					const s3PublicDomain = this.getNodeParameter('s3PublicDomain', i, '') as string;
 					const s3Url = await S3Utils.uploadToS3(
 						this,
 						videoBuffer,
 						'video/mp4',
 						s3BucketName,
-						`${s3PathPrefix}/veo_${ulid()}`,
+						`${operation}/veo_${ulid()}`,
+						5,
+						s3PublicDomain
 					);
 
 					// Prepare result

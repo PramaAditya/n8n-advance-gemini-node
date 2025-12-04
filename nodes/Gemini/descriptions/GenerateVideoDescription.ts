@@ -335,17 +335,17 @@ export const generateVideoFields: INodeProperties[] = [
 		required: true,
 	},
 	{
-		displayName: 'S3 Path Prefix',
-		name: 's3PathPrefix',
+		displayName: 'S3 Public Domain',
+		name: 's3PublicDomain',
 		type: 'string',
 		displayOptions: {
 			show: {
 				operation: ['generateVideo'],
 			},
 		},
-		default: 'videos/generated',
-		description: 'Path prefix within the S3 bucket (e.g., "videos/generated")',
-		placeholder: 'videos/generated',
+		default: '',
+		description: 'Optional public domain URL (e.g., https://cdn.example.com). If provided, the final URL will be [public_domain]/path/to/file.ext instead of the default S3 URL.',
+		placeholder: 'https://cdn.example.com',
 	},
 	{
 		displayName: 'Additional Options',
