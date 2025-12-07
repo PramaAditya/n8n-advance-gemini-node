@@ -316,7 +316,7 @@ export class VideoUtils {
 			// FFmpeg command to:
 			// 1. Normalize video to consistent format
 			// 2. Use full 4 seconds
-			// 3. Extract first frame and hold it
+			// 3. Extract first frame and create freeze frames
 			// 4. Crossfade from video to first frame starting at 3s (0.5s fade)
 			// 5. Hold freeze frame for 0.5s more (total 4s)
 			// 6. Remove audio
@@ -326,12 +326,12 @@ export class VideoUtils {
 				`-filter_complex "` +
 				`[0:v]fps=24,scale=${dimensions.width}:${dimensions.height}:force_original_aspect_ratio=decrease,pad=${dimensions.width}:${dimensions.height}:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p[v0]; ` +
 				`[v0]trim=duration=4,setpts=PTS-STARTPTS[v]; ` +
-				`[v]split=3[v1][v2][v3]; ` +
+				`[v]split=4[v1][v2][v3a][v3b]; ` +
 				`[v1]trim=duration=3,setpts=PTS-STARTPTS[v_main]; ` +
 				`[v2]trim=start=3:duration=0.5,setpts=PTS-STARTPTS[v_fade]; ` +
-				`[v3]trim=duration=0.04,setpts=PTS-STARTPTS,loop=loop=12:size=1,trim=duration=0.5,setpts=PTS-STARTPTS[freeze_fade]; ` +
+				`[v3a]trim=duration=0.04,setpts=PTS-STARTPTS,loop=loop=12:size=1,trim=duration=0.5,setpts=PTS-STARTPTS[freeze_fade]; ` +
 				`[v_fade][freeze_fade]xfade=transition=fade:duration=0.5:offset=0[faded]; ` +
-				`[v3]trim=duration=0.04,setpts=PTS-STARTPTS,loop=loop=12:size=1,trim=duration=0.5,setpts=PTS-STARTPTS[freeze_hold]; ` +
+				`[v3b]trim=duration=0.04,setpts=PTS-STARTPTS,loop=loop=12:size=1,trim=duration=0.5,setpts=PTS-STARTPTS[freeze_hold]; ` +
 				`[v_main][faded][freeze_hold]concat=n=3:v=1:a=0[outv]` +
 				`" -map "[outv]" -an -c:v libx264 -preset fast -crf 23 -pix_fmt yuv420p "${outputPath}"`;
 

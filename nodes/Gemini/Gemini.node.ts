@@ -660,15 +660,45 @@ export class Gemini implements INodeType {
 					}
 
 					// Check if generation was successful
-					if (!videoOperation.response || !videoOperation.response.generatedVideos || videoOperation.response.generatedVideos.length === 0) {
+					if (!videoOperation.response) {
 						throw new NodeOperationError(
 							this.getNode(),
-							'No videos were generated',
+							'Video generation failed: No response from API',
+							{ itemIndex: i },
+						);
+					}
+					
+					// Check for error and safety filters (type-safe way)
+					const responseAny = videoOperation.response as any;
+					if (responseAny.error) {
+						throw new NodeOperationError(
+							this.getNode(),
+							`Video generation failed: ${JSON.stringify(responseAny.error)}`,
+							{ itemIndex: i },
+						);
+					}
+					
+					// Check for safety filter
+					if (responseAny.raiMediaFilteredCount && responseAny.raiMediaFilteredCount > 0) {
+						const reasons = responseAny.raiMediaFilteredReasons || [];
+						throw new NodeOperationError(
+							this.getNode(),
+							`Video generation was blocked by safety filters.\nReasons: ${reasons.join('; ')}\n\nPlease try modifying your prompt or using different images.`,
+							{ itemIndex: i },
+						);
+					}
+					
+					// SDK may return either generatedVideos (normalized) or generateVideoResponse.generatedSamples (raw API)
+					const generatedSamples = responseAny.generatedVideos || responseAny.generateVideoResponse?.generatedSamples;
+					if (!generatedSamples || !Array.isArray(generatedSamples) || generatedSamples.length === 0) {
+						throw new NodeOperationError(
+							this.getNode(),
+							`No videos were generated. Response: ${JSON.stringify(videoOperation.response).substring(0, 500)}`,
 							{ itemIndex: i },
 						);
 					}
 
-					const firstVideo = videoOperation.response.generatedVideos[0];
+					const firstVideo = generatedSamples[0];
 					if (!firstVideo?.video?.uri) {
 						throw new NodeOperationError(
 							this.getNode(),
@@ -868,7 +898,7 @@ export class Gemini implements INodeType {
 					}
 					
 					// Check for safety filter
-					if (responseAny.raiMediaFilteredCount > 0) {
+					if (responseAny.raiMediaFilteredCount && responseAny.raiMediaFilteredCount > 0) {
 						const reasons = responseAny.raiMediaFilteredReasons || [];
 						throw new NodeOperationError(
 							this.getNode(),
@@ -877,9 +907,9 @@ export class Gemini implements INodeType {
 						);
 					}
 					
-					// Gemini API uses generateVideoResponse.generatedSamples, not generatedVideos
-					const generatedSamples = responseAny.generateVideoResponse?.generatedSamples;
-					if (!generatedSamples || generatedSamples.length === 0) {
+					// SDK may return either generatedVideos (normalized) or generateVideoResponse.generatedSamples (raw API)
+					const generatedSamples = responseAny.generatedVideos || responseAny.generateVideoResponse?.generatedSamples;
+					if (!generatedSamples || !Array.isArray(generatedSamples) || generatedSamples.length === 0) {
 						throw new NodeOperationError(
 							this.getNode(),
 							`No videos were generated for live photo. Response: ${JSON.stringify(videoOperation.response).substring(0, 500)}`,
