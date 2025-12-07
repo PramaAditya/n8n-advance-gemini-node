@@ -127,6 +127,7 @@ export const generateVideoFields: INodeProperties[] = [
 		displayOptions: {
 			show: {
 				operation: ['generateVideo'],
+				resolution: ['720p'],
 			},
 		},
 		options: [
@@ -144,7 +145,26 @@ export const generateVideoFields: INodeProperties[] = [
 			},
 		],
 		default: '8',
-		description: 'Length of generated video. Note: 1080p only supports 8s, extension/interpolation requires 8s, reference images require 8s.',
+		description: 'Length of generated video. 720p supports 4, 6, or 8 seconds.',
+	},
+	{
+		displayName: 'Duration (Seconds)',
+		name: 'durationSeconds',
+		type: 'options',
+		displayOptions: {
+			show: {
+				operation: ['generateVideo'],
+				resolution: ['1080p'],
+			},
+		},
+		options: [
+			{
+				name: '8 Seconds',
+				value: '8',
+			},
+		],
+		default: '8',
+		description: 'Length of generated video. 1080p only supports 8 seconds duration.',
 	},
 	{
 		displayName: 'Negative Prompt',
