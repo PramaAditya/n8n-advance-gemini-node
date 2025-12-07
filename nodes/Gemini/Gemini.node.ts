@@ -790,6 +790,7 @@ export class Gemini implements INodeType {
 					const livePhotoModel = this.getNodeParameter('livePhotoModel', i) as string;
 					const livePhotoImageUrl = this.getNodeParameter('livePhotoImageUrl', i) as string;
 					const livePhotoPrompt = this.getNodeParameter('livePhotoPrompt', i, '') as string;
+					const livePhotoAspectRatio = this.getNodeParameter('livePhotoAspectRatio', i) as string;
 					const s3BucketName = this.getNodeParameter('s3BucketName', i) as string;
 					const s3PublicDomain = this.getNodeParameter('s3PublicDomain', i, '') as string;
 					const additionalOptions = this.getNodeParameter('additionalOptions', i, {}) as any;
@@ -802,17 +803,17 @@ export class Gemini implements INodeType {
 						apiKey: credentials.apiKey as string,
 					});
 
-					// Build prompt - use provided or default
-					const defaultPrompt = 'Subtle ambient motion, gentle movement, natural and organic, soft and smooth';
+					// Build prompt - use provided or default (camera/technical focused to avoid safety filters)
+					const defaultPrompt = 'Camera slightly adjusts focus, gentle lighting changes, ambient shadows shift';
 					const finalPrompt = livePhotoPrompt && livePhotoPrompt.trim()
 						? livePhotoPrompt.trim()
 						: defaultPrompt;
 
-					// Build config - preset to 720p, 4s
+					// Build config - preset to 720p, 4s, with selected aspect ratio
 					const config: any = {
 						numberOfVideos: 1,
 						resolution: '720p',
-						aspectRatio: '16:9',
+						aspectRatio: livePhotoAspectRatio,
 						durationSeconds: 4,
 						personGeneration: 'allow_adult',
 					};
@@ -848,15 +849,45 @@ export class Gemini implements INodeType {
 					}
 
 					// Check if generation was successful
-					if (!videoOperation.response || !videoOperation.response.generatedVideos || videoOperation.response.generatedVideos.length === 0) {
+					if (!videoOperation.response) {
 						throw new NodeOperationError(
 							this.getNode(),
-							'No videos were generated for live photo',
+							'Live photo generation failed: No response from API',
+							{ itemIndex: i },
+						);
+					}
+					
+					// Check for error in response (type-safe way)
+					const responseAny = videoOperation.response as any;
+					if (responseAny.error) {
+						throw new NodeOperationError(
+							this.getNode(),
+							`Live photo generation failed: ${JSON.stringify(responseAny.error)}`,
+							{ itemIndex: i },
+						);
+					}
+					
+					// Check for safety filter
+					if (responseAny.raiMediaFilteredCount > 0) {
+						const reasons = responseAny.raiMediaFilteredReasons || [];
+						throw new NodeOperationError(
+							this.getNode(),
+							`Live photo generation was blocked by safety filters.\nReasons: ${reasons.join('; ')}\n\nPlease try:\n- Using a different image\n- Modifying or removing the motion prompt\n- Using a more general description`,
+							{ itemIndex: i },
+						);
+					}
+					
+					// Gemini API uses generateVideoResponse.generatedSamples, not generatedVideos
+					const generatedSamples = responseAny.generateVideoResponse?.generatedSamples;
+					if (!generatedSamples || generatedSamples.length === 0) {
+						throw new NodeOperationError(
+							this.getNode(),
+							`No videos were generated for live photo. Response: ${JSON.stringify(videoOperation.response).substring(0, 500)}`,
 							{ itemIndex: i },
 						);
 					}
 
-					const firstVideo = videoOperation.response.generatedVideos[0];
+					const firstVideo = generatedSamples[0];
 					if (!firstVideo?.video?.uri) {
 						throw new NodeOperationError(
 							this.getNode(),
@@ -892,28 +923,12 @@ export class Gemini implements INodeType {
 						videoBuffer = Buffer.from(videoResponse.body);
 					}
 
-					// Fetch the original image as buffer for crossfade
-					const imageResponse = await this.helpers.httpRequest({
-						method: 'GET',
-						url: livePhotoImageUrl,
-						returnFullResponse: true,
-						encoding: 'arraybuffer',
-					});
-
-					let imageBuffer: Buffer;
-					if (Buffer.isBuffer(imageResponse.body)) {
-						imageBuffer = imageResponse.body;
-					} else if (typeof imageResponse.body === 'string') {
-						imageBuffer = Buffer.from(imageResponse.body, 'binary');
-					} else {
-						imageBuffer = Buffer.from(imageResponse.body);
-					}
-
-					// Process video to create live photo effect
+					// Process video to create live photo effect with aspect ratio
+					// Note: Uses video's first frame for perfect matching
 					const livePhotoBuffer = await VideoUtils.createLivePhotoVideo(
 						this,
 						videoBuffer,
-						imageBuffer,
+						livePhotoAspectRatio,
 					);
 
 					// Upload to S3
@@ -934,7 +949,8 @@ export class Gemini implements INodeType {
 						model: livePhotoModel,
 						type: 'livePhoto',
 						resolution: '720p',
-						duration: '3s',
+						aspectRatio: livePhotoAspectRatio,
+						duration: '4s',
 						imageUrl: livePhotoImageUrl,
 						prompt: finalPrompt,
 						usedDefaultPrompt: !livePhotoPrompt || !livePhotoPrompt.trim(),

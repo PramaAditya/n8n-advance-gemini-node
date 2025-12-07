@@ -279,16 +279,18 @@ export class VideoUtils {
 
 	/**
 	 * Process video for Live Photo effect:
-	 * 1. Trim to 3 seconds
-	 * 2. Add crossfade back to the original image
-	 * 3. Mute audio
-	 * 
+	 * 1. Use full 4 seconds from video
+	 * 2. Extract first frame from video
+	 * 3. Crossfade to first frame over 0.5s starting at 3s
+	 * 4. Hold freeze frame for 0.5s more (total 4s)
+	 * 5. Mute audio
+	 *
 	 * This mimics iOS Live Photos behavior
 	 */
 	static async createLivePhotoVideo(
 		executeFunctions: IExecuteFunctions,
 		videoBuffer: Buffer,
-		imageBuffer: Buffer,
+		aspectRatio: string = '16:9',
 	): Promise<Buffer> {
 		const { exec } = await import('child_process');
 		const { promisify } = await import('util');
@@ -300,30 +302,37 @@ export class VideoUtils {
 		
 		const tempId = Date.now();
 		const videoPath = join(tmpdir(), `livephoto_video_${tempId}.mp4`);
-		const imagePath = join(tmpdir(), `livephoto_image_${tempId}.jpg`);
 		const outputPath = join(tmpdir(), `livephoto_output_${tempId}.mp4`);
 
 		try {
-			// Write input files to temp
+			// Write input video to temp
 			await writeFile(videoPath, videoBuffer);
-			await writeFile(imagePath, imageBuffer);
+
+			// Determine dimensions based on aspect ratio
+			const dimensions = aspectRatio === '9:16'
+				? { width: 720, height: 1280 }
+				: { width: 1280, height: 720 };
 
 			// FFmpeg command to:
-			// 1. Trim video to 3 seconds
-			// 2. Scale image to match video dimensions
-			// 3. Create crossfade effect back to the starting image (0.5s fade)
-			// 4. Remove audio
+			// 1. Normalize video to consistent format
+			// 2. Use full 4 seconds
+			// 3. Extract first frame and hold it
+			// 4. Crossfade from video to first frame starting at 3s (0.5s fade)
+			// 5. Hold freeze frame for 0.5s more (total 4s)
+			// 6. Remove audio
 			//
-			// The effect: video plays for 2.5s, then crossfades to the still image over 0.5s
-			const ffmpegCmd = `ffmpeg -i "${videoPath}" -loop 1 -t 0.5 -i "${imagePath}" ` +
+			// Timeline: 0-3s video → 3-3.5s crossfade → 3.5-4s freeze frame
+			const ffmpegCmd = `ffmpeg -i "${videoPath}" ` +
 				`-filter_complex "` +
-				`[0:v]trim=duration=3,setpts=PTS-STARTPTS[v0]; ` +
-				`[v0]split[v1][v2]; ` +
-				`[v1]trim=duration=2.5[v1trim]; ` +
-				`[v2]trim=start=2.5:duration=0.5,setpts=PTS-STARTPTS[v2trim]; ` +
-				`[1:v]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setpts=PTS-STARTPTS[img]; ` +
-				`[v2trim][img]xfade=transition=fade:duration=0.5:offset=0[fade]; ` +
-				`[v1trim][fade]concat=n=2:v=1:a=0[outv]` +
+				`[0:v]fps=24,scale=${dimensions.width}:${dimensions.height}:force_original_aspect_ratio=decrease,pad=${dimensions.width}:${dimensions.height}:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p[v0]; ` +
+				`[v0]trim=duration=4,setpts=PTS-STARTPTS[v]; ` +
+				`[v]split=3[v1][v2][v3]; ` +
+				`[v1]trim=duration=3,setpts=PTS-STARTPTS[v_main]; ` +
+				`[v2]trim=start=3:duration=0.5,setpts=PTS-STARTPTS[v_fade]; ` +
+				`[v3]trim=duration=0.04,setpts=PTS-STARTPTS,loop=loop=12:size=1,trim=duration=0.5,setpts=PTS-STARTPTS[freeze_fade]; ` +
+				`[v_fade][freeze_fade]xfade=transition=fade:duration=0.5:offset=0[faded]; ` +
+				`[v3]trim=duration=0.04,setpts=PTS-STARTPTS,loop=loop=12:size=1,trim=duration=0.5,setpts=PTS-STARTPTS[freeze_hold]; ` +
+				`[v_main][faded][freeze_hold]concat=n=3:v=1:a=0[outv]` +
 				`" -map "[outv]" -an -c:v libx264 -preset fast -crf 23 -pix_fmt yuv420p "${outputPath}"`;
 
 			await execAsync(ffmpegCmd, { timeout: 120000 }); // 2 minute timeout
@@ -334,7 +343,6 @@ export class VideoUtils {
 			// Clean up temp files
 			try {
 				await unlink(videoPath);
-				await unlink(imagePath);
 				await unlink(outputPath);
 			} catch (cleanupError) {
 				// Ignore cleanup errors
@@ -345,7 +353,6 @@ export class VideoUtils {
 			// Clean up temp files on error
 			try {
 				await unlink(videoPath).catch(() => {});
-				await unlink(imagePath).catch(() => {});
 				await unlink(outputPath).catch(() => {});
 			} catch (cleanupError) {
 				// Ignore cleanup errors

@@ -56,6 +56,28 @@ export const generateLivePhotoFields: INodeProperties[] = [
 		},
 	},
 	{
+		displayName: 'Aspect Ratio',
+		name: 'livePhotoAspectRatio',
+		type: 'options',
+		displayOptions: {
+			show: {
+				operation: ['generateLivePhoto'],
+			},
+		},
+		options: [
+			{
+				name: 'Landscape (16:9)',
+				value: '16:9',
+			},
+			{
+				name: 'Portrait (9:16)',
+				value: '9:16',
+			},
+		],
+		default: '16:9',
+		description: 'Aspect ratio for the live photo video',
+	},
+	{
 		displayName: 'S3 Bucket Name',
 		name: 's3BucketName',
 		type: 'string',
