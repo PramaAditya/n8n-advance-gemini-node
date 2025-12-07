@@ -105,64 +105,49 @@ export class Gemini implements INodeType {
 						apiKey: credentials.apiKey as string,
 					});
 
-					// Build contents array
-					const contents: any[] = [];
-
-					// Handle manual mapping format (existing functionality)
-					const messageHistory = this.getNodeParameter('messageHistory.messages', i, []) as any[];
+					// Get input images and current message
+					const inputImages = this.getNodeParameter('inputImages.images', i, []) as any[];
 					let currentMessage = this.getNodeParameter('currentMessage', i) as string;
 
-					// Track definitions from user role messages
+					// Build parts array for the single user message
+					const parts: any[] = [];
+
+					// Track image definitions
 					const definitions: Array<{ key: string; definition: string }> = [];
 					let imageCount = 0;
-					let textCount = 0;
 
-					// Add message history
-					for (const message of messageHistory) {
-						const parts: any[] = [];
+					// Add all images as parts
+					for (const image of inputImages) {
+						try {
+							// Create the message format expected by ImageUtils
+							const imageMessage: any = {
+								contentType: image.imageSource === 'url' ? 'imageUrl' : 'imageBase64',
+								mimeType: image.mimeType,
+							};
 
-						if (message.contentType === 'text' && message.text) {
-							parts.push({ text: message.text });
-							
-							// Track text definition if this is a user message
-							if (message.role === 'user' && message.definition && message.definition.trim()) {
-								textCount++;
+							if (image.imageSource === 'url') {
+								imageMessage.imageUrl = image.imageUrl;
+							} else {
+								imageMessage.imageBase64 = image.imageBase64;
+							}
+
+							const geminiPart = await ImageUtils.createGeminiPart(this, imageMessage);
+							parts.push(geminiPart);
+
+							// Track image definition if provided
+							if (image.description && image.description.trim()) {
+								imageCount++;
 								definitions.push({
-									key: `[TEXT_${textCount}]`,
-									definition: message.definition.trim(),
+									key: `[IMAGE_${imageCount}]`,
+									definition: image.description.trim(),
 								});
 							}
-						} else if (
-							message.contentType === 'imageUrl' ||
-							message.contentType === 'imageBase64'
-						) {
-							try {
-								const geminiPart = await ImageUtils.createGeminiPart(this, message);
-								parts.push(geminiPart);
-								
-								// Track image definition if this is a user message
-								if (message.role === 'user' && message.definition && message.definition.trim()) {
-									imageCount++;
-									definitions.push({
-										key: `[IMAGE_${imageCount}]`,
-										definition: message.definition.trim(),
-									});
-								}
-							} catch (error) {
-								throw new NodeOperationError(
-									this.getNode(),
-									`Error processing image in message history: ${error.message}`,
-									{ itemIndex: i },
-								);
-							}
-						}
-
-						// Only add message if it has parts
-						if (parts.length > 0) {
-							contents.push({
-								role: message.role,
-								parts,
-							});
+						} catch (error) {
+							throw new NodeOperationError(
+								this.getNode(),
+								`Error processing image: ${error.message}`,
+								{ itemIndex: i },
+							);
 						}
 					}
 
@@ -174,16 +159,22 @@ export class Gemini implements INodeType {
 							'---',
 							'',
 						].join('\n');
-						
+
 						// Prepend definitions to current message
 						currentMessage = definitionsBlock + currentMessage;
 					}
 
-					// Add current message
+					// Add text message as the last part
 					if (currentMessage) {
+						parts.push({ text: currentMessage });
+					}
+
+					// Build contents array with single user message containing all parts
+					const contents: any[] = [];
+					if (parts.length > 0) {
 						contents.push({
 							role: 'user',
-							parts: [{ text: currentMessage }],
+							parts,
 						});
 					}
 

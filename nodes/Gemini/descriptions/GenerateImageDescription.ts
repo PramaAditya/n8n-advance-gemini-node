@@ -25,8 +25,8 @@ export const generateImageFields: INodeProperties[] = [
 		default: 'gemini-2.5-flash-image-preview',
 	},
 	{
-		displayName: 'Message History',
-		name: 'messageHistory',
+		displayName: 'Input Images',
+		name: 'inputImages',
 		type: 'fixedCollection',
 		displayOptions: {
 			show: {
@@ -39,55 +39,25 @@ export const generateImageFields: INodeProperties[] = [
 		},
 		options: [
 			{
-				name: 'messages',
-				displayName: 'Messages',
+				name: 'images',
+				displayName: 'Images',
+				// eslint-disable-next-line n8n-nodes-base/node-param-fixed-collection-type-unsorted-items
 				values: [
 					{
-						displayName: 'Content Type',
-						name: 'contentType',
+						displayName: 'Image Source',
+						name: 'imageSource',
 						type: 'options',
 						options: [
 							{
-								name: 'Text',
-								value: 'text',
+								name: 'URL',
+								value: 'url',
 							},
 							{
-								name: 'Image (URL)',
-								value: 'imageUrl',
-							},
-							{
-								name: 'Image (Base64)',
-								value: 'imageBase64',
+								name: 'Base64',
+								value: 'base64',
 							},
 						],
-						default: 'text',
-					},
-					{
-						displayName: 'Definition',
-						name: 'definition',
-						type: 'string',
-						displayOptions: {
-							show: {
-								role: ['user'],
-							},
-						},
-						default: '',
-						description: 'Optional definition that will be included in the INPUT DEFINITIONS section of the prompt. Images will be referenced as [IMAGE_N] and text as [TEXT_N]. Use to describe what this input represents (e.g., "Reference image for clothing style", "Subject identity photo")',
-						typeOptions: {
-							rows: 2,
-						},
-					},
-					{
-						displayName: 'Image Base64',
-						name: 'imageBase64',
-						type: 'string',
-						displayOptions: {
-							show: {
-								contentType: ['imageBase64'],
-							},
-						},
-						default: '',
-						description: 'Base64 encoded image data (without data:image prefix)',
+						default: 'url',
 					},
 					{
 						displayName: 'Image URL',
@@ -95,21 +65,31 @@ export const generateImageFields: INodeProperties[] = [
 						type: 'string',
 						displayOptions: {
 							show: {
-								contentType: ['imageUrl'],
+								imageSource: ['url'],
 							},
 						},
 						default: '',
-						description: 'URL of the image to include in the message',
+						description: 'URL of the image to include',
+					},
+					{
+						displayName: 'Image Base64',
+						name: 'imageBase64',
+						type: 'string',
+						displayOptions: {
+							show: {
+								imageSource: ['base64'],
+							},
+						},
+						default: '',
+						description: 'Base64 encoded image data (without data:image prefix)',
+						typeOptions: {
+							rows: 4,
+						},
 					},
 					{
 						displayName: 'MIME Type',
 						name: 'mimeType',
 						type: 'options',
-						displayOptions: {
-							show: {
-								contentType: ['imageUrl', 'imageBase64'],
-							},
-						},
 						options: [
 							{
 								name: 'Auto-Detect (Recommended)',
@@ -133,35 +113,17 @@ export const generateImageFields: INodeProperties[] = [
 							},
 						],
 						default: '',
-						description:
-							'MIME type of the image. Leave empty for auto-detection (recommended for URLs).',
+						description: 'MIME type of the image. Leave empty for auto-detection (recommended for URLs).',
 					},
 					{
-						displayName: 'Role',
-						name: 'role',
-						type: 'options',
-						options: [
-							{
-								name: 'User',
-								value: 'user',
-							},
-							{
-								name: 'Model',
-								value: 'model',
-							},
-						],
-						default: 'user',
-					},
-					{
-						displayName: 'Text',
-						name: 'text',
+						displayName: 'Description',
+						name: 'description',
 						type: 'string',
-						displayOptions: {
-							show: {
-								contentType: ['text'],
-							},
-						},
 						default: '',
+						description: 'Optional description that will be included in the INPUT DEFINITIONS section of the prompt. Images will be referenced as [IMAGE_N]. Use to describe what this input represents (e.g., "Reference image for clothing style", "Subject identity photo")',
+						typeOptions: {
+							rows: 2,
+						},
 					},
 				],
 			},
