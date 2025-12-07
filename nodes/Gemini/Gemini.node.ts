@@ -846,12 +846,14 @@ export class Gemini implements INodeType {
 						? livePhotoPrompt.trim()
 						: defaultPrompt;
 
-					// Build config - preset to 720p, 4s, with selected aspect ratio
+					// Build config - preset to 720p, with selected aspect ratio
+					// Use 8 seconds if end frame provided (required for frames-to-video), 4 seconds otherwise
+					const durationForLivePhoto = endFrameImage ? 8 : 4;
 					const config: any = {
 						numberOfVideos: 1,
 						resolution: '720p',
 						aspectRatio: livePhotoAspectRatio,
-						durationSeconds: 4,
+						durationSeconds: durationForLivePhoto,
 						personGeneration: 'allow_adult',
 					};
 
@@ -967,6 +969,7 @@ export class Gemini implements INodeType {
 
 					// Process video to create live photo effect with aspect ratio
 					// Note: Uses video's first frame for perfect matching
+					// Always outputs 5s regardless of input video length (4s or 8s)
 					const livePhotoBuffer = await VideoUtils.createLivePhotoVideo(
 						this,
 						videoBuffer,
@@ -992,7 +995,8 @@ export class Gemini implements INodeType {
 						type: 'livePhoto',
 						resolution: '720p',
 						aspectRatio: livePhotoAspectRatio,
-						duration: '5s',
+						duration: endFrameImage ? '8s' : '5s',
+						usedFramesToVideo: !!endFrameImage,
 						imageUrl: livePhotoImageUrl,
 						endFrameUrl: livePhotoEndFrameUrl || null,
 						prompt: finalPrompt,
