@@ -819,14 +819,21 @@ export class Gemini implements INodeType {
 					const credentials = await this.getCredentials('googlePalmApi', i);
 					const livePhotoModel = this.getNodeParameter('livePhotoModel', i) as string;
 					const livePhotoImageUrl = this.getNodeParameter('livePhotoImageUrl', i) as string;
+					const livePhotoEndFrameUrl = this.getNodeParameter('livePhotoEndFrameUrl', i, '') as string;
 					const livePhotoPrompt = this.getNodeParameter('livePhotoPrompt', i, '') as string;
 					const livePhotoAspectRatio = this.getNodeParameter('livePhotoAspectRatio', i) as string;
 					const s3BucketName = this.getNodeParameter('s3BucketName', i) as string;
 					const s3PublicDomain = this.getNodeParameter('s3PublicDomain', i, '') as string;
 					const additionalOptions = this.getNodeParameter('additionalOptions', i, {}) as any;
 
-					// Fetch the image for both starting frame and final crossfade
+					// Fetch the start frame image
 					const startFrameImage = await VideoUtils.fetchImageForVideo(this, livePhotoImageUrl);
+					
+					// Optionally fetch end frame if provided
+					let endFrameImage = null;
+					if (livePhotoEndFrameUrl && livePhotoEndFrameUrl.trim()) {
+						endFrameImage = await VideoUtils.fetchImageForVideo(this, livePhotoEndFrameUrl);
+					}
 
 					// Initialize Google GenAI
 					const ai = new GoogleGenAI({
@@ -855,6 +862,11 @@ export class Gemini implements INodeType {
 						prompt: finalPrompt,
 						image: startFrameImage,
 					};
+					
+					// Add end frame if provided (for interpolation)
+					if (endFrameImage) {
+						generateVideoPayload.config.lastFrame = endFrameImage;
+					}
 
 					// Start video generation
 					let videoOperation = await ai.models.generateVideos(generateVideoPayload);
@@ -980,8 +992,9 @@ export class Gemini implements INodeType {
 						type: 'livePhoto',
 						resolution: '720p',
 						aspectRatio: livePhotoAspectRatio,
-						duration: '4s',
+						duration: '5s',
 						imageUrl: livePhotoImageUrl,
+						endFrameUrl: livePhotoEndFrameUrl || null,
 						prompt: finalPrompt,
 						usedDefaultPrompt: !livePhotoPrompt || !livePhotoPrompt.trim(),
 					};

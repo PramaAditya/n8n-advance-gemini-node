@@ -313,21 +313,27 @@ export class VideoUtils {
 				? { width: 720, height: 1280 }
 				: { width: 1280, height: 720 };
 
-			// OPTIMIZED APPROACH:
-			// Much simpler and faster than complex filter chains
-			// 1. Trim to 3 seconds
-			// 2. Add 1 second fade-out overlay using the first frame
-			// 3. Mute audio
+			// FFmpeg command to:
+			// 1. Normalize video to consistent format
+			// 2. Use full 4 seconds
+			// 3. Extract first frame and create freeze frames
+			// 4. Crossfade from video to first frame starting at 3s (0.5s fade)
+			// 5. Hold freeze frame for 1.5s more (total 5s)
+			// 6. Remove audio
 			//
-			// Timeline: 0-3s video with fade to black/freeze at end → 3-4s freeze frame
+			// Timeline: 0-3s video → 3-3.5s crossfade → 3.5-5s freeze frame
 			const ffmpegCmd = `ffmpeg -i "${videoPath}" ` +
 				`-filter_complex "` +
-				`[0:v]fps=24,scale=${dimensions.width}:${dimensions.height}:force_original_aspect_ratio=decrease,pad=${dimensions.width}:${dimensions.height}:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p[v]; ` +
-				`[v]trim=0:4,setpts=PTS-STARTPTS[vtrim]; ` +
-				`[vtrim]split[v1][v2]; ` +
-				`[v1]trim=3:4,geq=lum='p(X,Y)':cb='p(X,Y)':cr='p(X,Y)',loop=24:1[freeze]; ` +
-				`[v2][freeze]overlay=shortest=1:enable='between(t,3,4)'[outv]` +
-				`" -map "[outv]" -t 4 -an -c:v libx264 -preset fast -crf 23 -pix_fmt yuv420p "${outputPath}"`;
+				`[0:v]fps=24,scale=${dimensions.width}:${dimensions.height}:force_original_aspect_ratio=decrease,pad=${dimensions.width}:${dimensions.height}:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p[v0]; ` +
+				`[v0]trim=duration=4,setpts=PTS-STARTPTS[v]; ` +
+				`[v]split=4[v1][v2][v3a][v3b]; ` +
+				`[v1]trim=duration=3,setpts=PTS-STARTPTS[v_main]; ` +
+				`[v2]trim=start=3:duration=0.5,setpts=PTS-STARTPTS[v_fade]; ` +
+				`[v3a]trim=duration=0.04,setpts=PTS-STARTPTS,loop=loop=12:size=1,trim=duration=0.5,setpts=PTS-STARTPTS[freeze_fade]; ` +
+				`[v_fade][freeze_fade]xfade=transition=fade:duration=0.5:offset=0[faded]; ` +
+				`[v3b]trim=duration=0.04,setpts=PTS-STARTPTS,loop=loop=36:size=1,trim=duration=1.5,setpts=PTS-STARTPTS[freeze_hold]; ` +
+				`[v_main][faded][freeze_hold]concat=n=3:v=1:a=0[outv]` +
+				`" -map "[outv]" -an -c:v libx264 -preset fast -crf 23 -pix_fmt yuv420p "${outputPath}"`;
 
 			await execAsync(ffmpegCmd, { timeout: 120000 }); // 2 minute timeout
 

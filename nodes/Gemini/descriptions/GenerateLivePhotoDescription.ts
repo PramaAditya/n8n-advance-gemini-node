@@ -56,6 +56,19 @@ export const generateLivePhotoFields: INodeProperties[] = [
 		},
 	},
 	{
+		displayName: 'End Frame URL (Optional)',
+		name: 'livePhotoEndFrameUrl',
+		type: 'string',
+		displayOptions: {
+			show: {
+				operation: ['generateLivePhoto'],
+			},
+		},
+		default: '',
+		description: 'Optional URL of a different end frame. If provided, video will interpolate between start and end frames. Leave empty to use start frame as end frame.',
+		placeholder: 'https://example.com/end-frame.jpg',
+	},
+	{
 		displayName: 'Aspect Ratio',
 		name: 'livePhotoAspectRatio',
 		type: 'options',
