@@ -626,7 +626,7 @@ export class Gemini implements INodeType {
 					}
 
 					// Start video generation
-					let operation = await ai.models.generateVideos(generateVideoPayload);
+					let videoOperation = await ai.models.generateVideos(generateVideoPayload);
 
 					// Polling configuration
 					const pollingInterval = (additionalOptions.pollingInterval || 10) * 1000; // Convert to ms
@@ -634,7 +634,7 @@ export class Gemini implements INodeType {
 					const startTime = Date.now();
 
 					// Poll until video generation is complete
-					while (!operation.done) {
+					while (!videoOperation.done) {
 						// Check timeout
 						if (Date.now() - startTime > maxWaitTime) {
 							throw new NodeOperationError(
@@ -648,11 +648,11 @@ export class Gemini implements INodeType {
 						await new Promise((resolve) => setTimeout(resolve, pollingInterval));
 
 						// Get updated operation status
-						operation = await ai.operations.getVideosOperation({ operation });
+						videoOperation = await ai.operations.getVideosOperation({ operation: videoOperation });
 					}
 
 					// Check if generation was successful
-					if (!operation.response || !operation.response.generatedVideos || operation.response.generatedVideos.length === 0) {
+					if (!videoOperation.response || !videoOperation.response.generatedVideos || videoOperation.response.generatedVideos.length === 0) {
 						throw new NodeOperationError(
 							this.getNode(),
 							'No videos were generated',
@@ -660,7 +660,7 @@ export class Gemini implements INodeType {
 						);
 					}
 
-					const firstVideo = operation.response.generatedVideos[0];
+					const firstVideo = videoOperation.response.generatedVideos[0];
 					if (!firstVideo?.video?.uri) {
 						throw new NodeOperationError(
 							this.getNode(),
