@@ -195,7 +195,6 @@ export class Gemini implements INodeType {
 					// Add image configuration if IMAGE response modality is enabled
 					if (responseModalities.includes('IMAGE')) {
 						const imageAspectRatio = this.getNodeParameter('imageAspectRatio', i, '') as string;
-						const imageSize = this.getNodeParameter('imageSize', i, '1K') as string;
 
 						const imageConfig: any = {};
 						
@@ -204,7 +203,12 @@ export class Gemini implements INodeType {
 							imageConfig.aspectRatio = imageAspectRatio;
 						}
 						
-						imageConfig.imageSize = imageSize;
+						// Only add imageSize for gemini-3-pro-image-preview
+						// gemini-2.5-flash-image-preview doesn't support resolution parameter
+						if (model === 'gemini-3-pro-image-preview') {
+							const imageSize = this.getNodeParameter('imageSize', i, '1K') as string;
+							imageConfig.imageSize = imageSize;
+						}
 						
 						config.imageConfig = imageConfig;
 					}
@@ -995,7 +999,7 @@ export class Gemini implements INodeType {
 						type: 'livePhoto',
 						resolution: '720p',
 						aspectRatio: livePhotoAspectRatio,
-						duration: endFrameImage ? '8s' : '5s',
+						duration: '4s',
 						usedFramesToVideo: !!endFrameImage,
 						imageUrl: livePhotoImageUrl,
 						endFrameUrl: livePhotoEndFrameUrl || null,

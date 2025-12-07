@@ -280,12 +280,11 @@ export class VideoUtils {
 	/**
 	 * Process video for Live Photo effect:
 	 * 1. Always trim to 3 seconds of motion (works with 4s or 8s input)
-	 * 2. Extract first frame from video
-	 * 3. Crossfade to first frame over 0.5s
-	 * 4. Hold freeze frame for 2s more (total 5s)
-	 * 5. Mute audio
+	 * 2. Extract frame at 1.5s mark (the key "photo" moment)
+	 * 3. Add 1s freeze of the 1.5s frame after the video
+	 * 4. Mute audio
 	 *
-	 * This mimics iOS Live Photos behavior
+	 * This mimics iOS Live Photos behavior (1.5s before + 1.5s after + 1s freeze = 4s total)
 	 */
 	static async createLivePhotoVideo(
 		executeFunctions: IExecuteFunctions,
@@ -316,26 +315,26 @@ export class VideoUtils {
 			// Always trim to 3 seconds for consistent Live Photo output
 			// This works for both 4s and 8s input videos
 			const motionDuration = 3;
+			const keyFrameTime = 1.5; // The "photo" moment - center of the 3s clip
 			
 			// FFmpeg command to:
 			// 1. Normalize video to consistent format
 			// 2. Always trim to 3 seconds of motion
-			// 3. Extract first frame and create freeze frames
-			// 4. Crossfade from video to first frame (0.5s fade)
-			// 5. Hold freeze frame for 2s more (total 5s output)
-			// 6. Remove audio
+			// 3. Extract frame at 1.5s mark (the key "photo" moment)
+			// 4. Crossfade last 0.5s to key frame, then hold for 1s
+			// 5. Remove audio
 			//
-			// Timeline: 0-3s video → 3-3.5s crossfade → 3.5-5s freeze (always 5s total)
+			// Timeline: 0-2.5s motion → 2.5-3s crossfade to key frame → 3-4s hold key frame (4s total)
 			const ffmpegCmd = `ffmpeg -i "${videoPath}" ` +
 				`-filter_complex "` +
 				`[0:v]fps=24,scale=${dimensions.width}:${dimensions.height}:force_original_aspect_ratio=decrease,pad=${dimensions.width}:${dimensions.height}:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p[v0]; ` +
-				`[v0]trim=duration=${motionDuration},setpts=PTS-STARTPTS[v]; ` +
-				`[v]split=4[v1][v2][v3a][v3b]; ` +
+				`[v0]split=3[v0a][v0b][v0c]; ` +
+				`[v0a]trim=duration=${motionDuration},setpts=PTS-STARTPTS,split[v1][v2]; ` +
 				`[v1]trim=duration=2.5,setpts=PTS-STARTPTS[v_main]; ` +
 				`[v2]trim=start=2.5:duration=0.5,setpts=PTS-STARTPTS[v_fade]; ` +
-				`[v3a]trim=duration=0.04,setpts=PTS-STARTPTS,loop=loop=12:size=1,trim=duration=0.5,setpts=PTS-STARTPTS[freeze_fade]; ` +
+				`[v0b]trim=start=${keyFrameTime}:duration=0.04,setpts=PTS-STARTPTS,loop=loop=12:size=1,trim=duration=0.5,setpts=PTS-STARTPTS[freeze_fade]; ` +
 				`[v_fade][freeze_fade]xfade=transition=fade:duration=0.5:offset=0[faded]; ` +
-				`[v3b]trim=duration=0.04,setpts=PTS-STARTPTS,loop=loop=48:size=1,trim=duration=2,setpts=PTS-STARTPTS[freeze_hold]; ` +
+				`[v0c]trim=start=${keyFrameTime}:duration=0.04,setpts=PTS-STARTPTS,loop=loop=24:size=1,trim=duration=1,setpts=PTS-STARTPTS[freeze_hold]; ` +
 				`[v_main][faded][freeze_hold]concat=n=3:v=1:a=0[outv]` +
 				`" -map "[outv]" -an -c:v libx264 -preset fast -crf 23 -pix_fmt yuv420p "${outputPath}"`;
 

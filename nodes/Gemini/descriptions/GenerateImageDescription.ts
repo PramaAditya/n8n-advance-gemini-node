@@ -272,6 +272,7 @@ export const generateImageFields: INodeProperties[] = [
 			show: {
 				operation: ['generateImage'],
 				responseModalities: ['IMAGE'],
+				model: ['gemini-3-pro-image-preview'],
 			},
 		},
 		options: [
