@@ -203,9 +203,9 @@ export class VideoUtils {
 	}
 
 	/**
-		* Remove audio from video using ffmpeg (if available)
-		* Returns the processed buffer, or original buffer if ffmpeg fails
-		*/
+	 * Remove audio from video using ffmpeg (if available)
+	 * Returns the processed buffer, or original buffer if ffmpeg fails
+	 */
 	static async removeAudioFromVideo(
 		executeFunctions: IExecuteFunctions,
 		videoBuffer: Buffer,
@@ -258,6 +258,100 @@ export class VideoUtils {
 
 			// Return original buffer if ffmpeg fails
 			return { buffer: videoBuffer, audioRemoved: false };
+		}
+	}
+
+	/**
+	 * Check if ffmpeg is available on the system
+	 */
+	static async checkFfmpegAvailable(): Promise<boolean> {
+		const { exec } = await import('child_process');
+		const { promisify } = await import('util');
+		const execAsync = promisify(exec);
+
+		try {
+			await execAsync('ffmpeg -version', { timeout: 5000 });
+			return true;
+		} catch (error) {
+			return false;
+		}
+	}
+
+	/**
+	 * Process video for Live Photo effect:
+	 * 1. Trim to 3 seconds
+	 * 2. Add crossfade back to the original image
+	 * 3. Mute audio
+	 * 
+	 * This mimics iOS Live Photos behavior
+	 */
+	static async createLivePhotoVideo(
+		executeFunctions: IExecuteFunctions,
+		videoBuffer: Buffer,
+		imageBuffer: Buffer,
+	): Promise<Buffer> {
+		const { exec } = await import('child_process');
+		const { promisify } = await import('util');
+		const { writeFile, unlink, readFile } = await import('fs/promises');
+		const { tmpdir } = await import('os');
+		const { join } = await import('path');
+		
+		const execAsync = promisify(exec);
+		
+		const tempId = Date.now();
+		const videoPath = join(tmpdir(), `livephoto_video_${tempId}.mp4`);
+		const imagePath = join(tmpdir(), `livephoto_image_${tempId}.jpg`);
+		const outputPath = join(tmpdir(), `livephoto_output_${tempId}.mp4`);
+
+		try {
+			// Write input files to temp
+			await writeFile(videoPath, videoBuffer);
+			await writeFile(imagePath, imageBuffer);
+
+			// FFmpeg command to:
+			// 1. Trim video to 3 seconds
+			// 2. Scale image to match video dimensions
+			// 3. Create crossfade effect back to the starting image (0.5s fade)
+			// 4. Remove audio
+			//
+			// The effect: video plays for 2.5s, then crossfades to the still image over 0.5s
+			const ffmpegCmd = `ffmpeg -i "${videoPath}" -loop 1 -t 0.5 -i "${imagePath}" ` +
+				`-filter_complex "` +
+				`[0:v]trim=duration=3,setpts=PTS-STARTPTS[v0]; ` +
+				`[v0]split[v1][v2]; ` +
+				`[v1]trim=duration=2.5[v1trim]; ` +
+				`[v2]trim=start=2.5:duration=0.5,setpts=PTS-STARTPTS[v2trim]; ` +
+				`[1:v]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setpts=PTS-STARTPTS[img]; ` +
+				`[v2trim][img]xfade=transition=fade:duration=0.5:offset=0[fade]; ` +
+				`[v1trim][fade]concat=n=2:v=1:a=0[outv]` +
+				`" -map "[outv]" -an -c:v libx264 -preset fast -crf 23 -pix_fmt yuv420p "${outputPath}"`;
+
+			await execAsync(ffmpegCmd, { timeout: 120000 }); // 2 minute timeout
+
+			// Read the processed video
+			const processedBuffer = await readFile(outputPath);
+
+			// Clean up temp files
+			try {
+				await unlink(videoPath);
+				await unlink(imagePath);
+				await unlink(outputPath);
+			} catch (cleanupError) {
+				// Ignore cleanup errors
+			}
+
+			return processedBuffer;
+		} catch (error) {
+			// Clean up temp files on error
+			try {
+				await unlink(videoPath).catch(() => {});
+				await unlink(imagePath).catch(() => {});
+				await unlink(outputPath).catch(() => {});
+			} catch (cleanupError) {
+				// Ignore cleanup errors
+			}
+
+			throw new Error(`Failed to create live photo video: ${error.message}`);
 		}
 	}
 }

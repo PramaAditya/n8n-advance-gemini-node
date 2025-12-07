@@ -16,6 +16,7 @@ import { ulid } from 'ulid';
 import { generateImageFields } from './descriptions/GenerateImageDescription';
 import { generateTTSFields, maleVoices, femaleVoices, allVoices } from './descriptions/GenerateTextToSpeechDescription';
 import { generateVideoFields } from './descriptions/GenerateVideoDescription';
+import { generateLivePhotoFields } from './descriptions/GenerateLivePhotoDescription';
 
 export class Gemini implements INodeType {
 	description: INodeTypeDescription = {
@@ -69,12 +70,19 @@ export class Gemini implements INodeType {
 						description: 'Generate videos using Veo models',
 						action: 'Generate video with veo',
 					},
+					{
+						name: 'Generate Live Photo',
+						value: 'generateLivePhoto',
+						description: 'Generate iOS-style live photos with subtle motion',
+						action: 'Generate live photo',
+					},
 				],
 				default: 'generateImage',
 			},
 			...generateImageFields,
 			...generateTTSFields,
 			...generateVideoFields,
+			...generateLivePhotoFields,
 		],
 	};
 
@@ -762,6 +770,175 @@ export class Gemini implements INodeType {
 							result.audioRemovalNote = 'ffmpeg not available or failed - video may contain audio';
 						}
 					}
+
+					returnData.push({
+						json: result,
+						pairedItem: { item: i },
+					});
+				} else if (operation === 'generateLivePhoto') {
+					// Check ffmpeg availability first
+					const ffmpegAvailable = await VideoUtils.checkFfmpegAvailable();
+					if (!ffmpegAvailable) {
+						throw new NodeOperationError(
+							this.getNode(),
+							'ffmpeg is required for Live Photo generation but is not available on this system. Please install ffmpeg.',
+							{ itemIndex: i },
+						);
+					}
+
+					const credentials = await this.getCredentials('googlePalmApi', i);
+					const livePhotoModel = this.getNodeParameter('livePhotoModel', i) as string;
+					const livePhotoImageUrl = this.getNodeParameter('livePhotoImageUrl', i) as string;
+					const livePhotoPrompt = this.getNodeParameter('livePhotoPrompt', i, '') as string;
+					const s3BucketName = this.getNodeParameter('s3BucketName', i) as string;
+					const s3PublicDomain = this.getNodeParameter('s3PublicDomain', i, '') as string;
+					const additionalOptions = this.getNodeParameter('additionalOptions', i, {}) as any;
+
+					// Fetch the image for both starting frame and final crossfade
+					const startFrameImage = await VideoUtils.fetchImageForVideo(this, livePhotoImageUrl);
+
+					// Initialize Google GenAI
+					const ai = new GoogleGenAI({
+						apiKey: credentials.apiKey as string,
+					});
+
+					// Build prompt - use provided or default
+					const defaultPrompt = 'Subtle ambient motion, gentle movement, natural and organic, soft and smooth';
+					const finalPrompt = livePhotoPrompt && livePhotoPrompt.trim()
+						? livePhotoPrompt.trim()
+						: defaultPrompt;
+
+					// Build config - preset to 720p, 4s
+					const config: any = {
+						numberOfVideos: 1,
+						resolution: '720p',
+						aspectRatio: '16:9',
+						durationSeconds: 4,
+						personGeneration: 'allow_adult',
+					};
+
+					// Build generate video payload
+					const generateVideoPayload: any = {
+						model: livePhotoModel,
+						config,
+						prompt: finalPrompt,
+						image: startFrameImage,
+					};
+
+					// Start video generation
+					let videoOperation = await ai.models.generateVideos(generateVideoPayload);
+
+					// Polling configuration
+					const pollingInterval = (additionalOptions.pollingInterval || 10) * 1000;
+					const maxWaitTime = (additionalOptions.maxWaitTime || 30) * 60 * 1000;
+					const startTime = Date.now();
+
+					// Poll until video generation is complete
+					while (!videoOperation.done) {
+						if (Date.now() - startTime > maxWaitTime) {
+							throw new NodeOperationError(
+								this.getNode(),
+								`Live photo generation timed out after ${additionalOptions.maxWaitTime || 30} minutes`,
+								{ itemIndex: i },
+							);
+						}
+
+						await new Promise((resolve) => setTimeout(resolve, pollingInterval));
+						videoOperation = await ai.operations.getVideosOperation({ operation: videoOperation });
+					}
+
+					// Check if generation was successful
+					if (!videoOperation.response || !videoOperation.response.generatedVideos || videoOperation.response.generatedVideos.length === 0) {
+						throw new NodeOperationError(
+							this.getNode(),
+							'No videos were generated for live photo',
+							{ itemIndex: i },
+						);
+					}
+
+					const firstVideo = videoOperation.response.generatedVideos[0];
+					if (!firstVideo?.video?.uri) {
+						throw new NodeOperationError(
+							this.getNode(),
+							'Generated video is missing URI',
+							{ itemIndex: i },
+						);
+					}
+
+					const videoUri = firstVideo.video.uri ? decodeURIComponent(firstVideo.video.uri) : '';
+					if (!videoUri) {
+						throw new NodeOperationError(
+							this.getNode(),
+							'Generated video URI is empty',
+							{ itemIndex: i },
+						);
+					}
+
+					// Fetch the video from Gemini
+					const videoResponse = await this.helpers.httpRequest({
+						method: 'GET',
+						url: `${videoUri}&key=${credentials.apiKey}`,
+						returnFullResponse: true,
+						encoding: 'arraybuffer',
+					});
+
+					// Ensure we have a Buffer
+					let videoBuffer: Buffer;
+					if (Buffer.isBuffer(videoResponse.body)) {
+						videoBuffer = videoResponse.body;
+					} else if (typeof videoResponse.body === 'string') {
+						videoBuffer = Buffer.from(videoResponse.body, 'binary');
+					} else {
+						videoBuffer = Buffer.from(videoResponse.body);
+					}
+
+					// Fetch the original image as buffer for crossfade
+					const imageResponse = await this.helpers.httpRequest({
+						method: 'GET',
+						url: livePhotoImageUrl,
+						returnFullResponse: true,
+						encoding: 'arraybuffer',
+					});
+
+					let imageBuffer: Buffer;
+					if (Buffer.isBuffer(imageResponse.body)) {
+						imageBuffer = imageResponse.body;
+					} else if (typeof imageResponse.body === 'string') {
+						imageBuffer = Buffer.from(imageResponse.body, 'binary');
+					} else {
+						imageBuffer = Buffer.from(imageResponse.body);
+					}
+
+					// Process video to create live photo effect
+					const livePhotoBuffer = await VideoUtils.createLivePhotoVideo(
+						this,
+						videoBuffer,
+						imageBuffer,
+					);
+
+					// Upload to S3
+					const s3Url = await S3Utils.uploadToS3(
+						this,
+						livePhotoBuffer,
+						'video/mp4',
+						s3BucketName,
+						`${operation}/livephoto_${ulid()}`,
+						5,
+						s3PublicDomain
+					);
+
+					// Prepare result
+					const result: any = {
+						videoUrl: s3Url,
+						fileName: s3Url.split('/').pop(),
+						model: livePhotoModel,
+						type: 'livePhoto',
+						resolution: '720p',
+						duration: '3s',
+						imageUrl: livePhotoImageUrl,
+						prompt: finalPrompt,
+						usedDefaultPrompt: !livePhotoPrompt || !livePhotoPrompt.trim(),
+					};
 
 					returnData.push({
 						json: result,
