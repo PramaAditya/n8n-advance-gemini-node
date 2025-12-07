@@ -698,11 +698,23 @@ export class Gemini implements INodeType {
 						videoBuffer = Buffer.from(videoResponse.body);
 					}
 
+					// If audio generation is disabled, try to remove audio using ffmpeg
+					let finalVideoBuffer = videoBuffer;
+					let audioRemovalAttempted = false;
+					let audioRemovalSuccess = false;
+					
+					if (!generateAudio) {
+						audioRemovalAttempted = true;
+						const result = await VideoUtils.removeAudioFromVideo(this, videoBuffer);
+						finalVideoBuffer = result.buffer;
+						audioRemovalSuccess = result.audioRemoved;
+					}
+
 					// Upload to S3
 					const s3PublicDomain = this.getNodeParameter('s3PublicDomain', i, '') as string;
 					const s3Url = await S3Utils.uploadToS3(
 						this,
-						videoBuffer,
+						finalVideoBuffer,
 						'video/mp4',
 						s3BucketName,
 						`${operation}/veo_${ulid()}`,
@@ -741,6 +753,15 @@ export class Gemini implements INodeType {
 					}
 
 					result.generateAudio = generateAudio;
+					
+					// Add audio removal info if attempted
+					if (audioRemovalAttempted) {
+						result.audioRemovalAttempted = true;
+						result.audioRemovalSuccess = audioRemovalSuccess;
+						if (!audioRemovalSuccess) {
+							result.audioRemovalNote = 'ffmpeg not available or failed - video may contain audio';
+						}
+					}
 
 					returnData.push({
 						json: result,

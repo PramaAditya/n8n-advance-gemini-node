@@ -201,4 +201,63 @@ export class VideoUtils {
 		}
 		return `${secs}s`;
 	}
+
+	/**
+		* Remove audio from video using ffmpeg (if available)
+		* Returns the processed buffer, or original buffer if ffmpeg fails
+		*/
+	static async removeAudioFromVideo(
+		executeFunctions: IExecuteFunctions,
+		videoBuffer: Buffer,
+	): Promise<{ buffer: Buffer; audioRemoved: boolean }> {
+		const { exec } = await import('child_process');
+		const { promisify } = await import('util');
+		const { writeFile, unlink } = await import('fs/promises');
+		const { tmpdir } = await import('os');
+		const { join } = await import('path');
+		
+		const execAsync = promisify(exec);
+		
+		const tempId = Date.now();
+		const inputPath = join(tmpdir(), `input_${tempId}.mp4`);
+		const outputPath = join(tmpdir(), `output_${tempId}.mp4`);
+
+		try {
+			// Write input video to temp file
+			await writeFile(inputPath, videoBuffer);
+
+			// Try to remove audio using ffmpeg
+			// -an: remove audio stream
+			// -c:v copy: copy video stream without re-encoding (faster)
+			await execAsync(
+				`ffmpeg -i "${inputPath}" -c:v copy -an "${outputPath}"`,
+				{ timeout: 60000 } // 60 second timeout
+			);
+
+			// Read the processed video
+			const { readFile } = await import('fs/promises');
+			const processedBuffer = await readFile(outputPath);
+
+			// Clean up temp files
+			try {
+				await unlink(inputPath);
+				await unlink(outputPath);
+			} catch (cleanupError) {
+				// Ignore cleanup errors
+			}
+
+			return { buffer: processedBuffer, audioRemoved: true };
+		} catch (error) {
+			// Clean up temp files on error
+			try {
+				await unlink(inputPath).catch(() => {});
+				await unlink(outputPath).catch(() => {});
+			} catch (cleanupError) {
+				// Ignore cleanup errors
+			}
+
+			// Return original buffer if ffmpeg fails
+			return { buffer: videoBuffer, audioRemoved: false };
+		}
+	}
 }
