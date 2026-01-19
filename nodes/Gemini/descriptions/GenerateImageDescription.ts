@@ -13,7 +13,7 @@ export const generateImageFields: INodeProperties[] = [
 		options: [
 			{
 				name: 'Nano Banana (2.5 Flash Image Preview)',
-				value: 'gemini-2.5-flash-image-preview',
+				value: 'gemini-2.5-flash-image',
 				description: 'Latest model with image generation capabilities',
 			},
 			{
@@ -22,7 +22,7 @@ export const generateImageFields: INodeProperties[] = [
 				description: 'Advanced image generation model with perfect text rendering - excellent for educational illustrations',
 			}
 		],
-		default: 'gemini-2.5-flash-image-preview',
+		default: 'gemini-2.5-flash-image',
 	},
 	{
 		displayName: 'Input Images',
@@ -363,6 +363,29 @@ export const generateImageFields: INodeProperties[] = [
 				type: 'number',
 				default: 40,
 				description: 'Top-k sampling parameter',
+			},
+			{
+				displayName: 'Enable Parallel Batch',
+				name: 'enableParallelBatch',
+				type: 'boolean',
+				default: false,
+				description: 'Whether to make multiple parallel calls and return the first response with an image. Useful when Gemini sometimes fails to generate images.',
+			},
+			{
+				displayName: 'Batch Size',
+				name: 'batchSize',
+				type: 'number',
+				displayOptions: {
+					show: {
+						enableParallelBatch: [true],
+					},
+				},
+				default: 5,
+				typeOptions: {
+					minValue: 2,
+					maxValue: 50,
+				},
+				description: 'Number of parallel calls to make. First response with an image will be returned.',
 			},
 		],
 	},

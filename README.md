@@ -162,7 +162,7 @@ When using JSON format, provide a JSON object with the following structure:
 ```json
 {
   "operation": "generateContent",
-  "model": "gemini-2.5-flash-image-preview",
+  "model": "gemini-2.5-flash-image",
   "currentMessage": "Write a short story about a robot learning to paint",
   "responseModalities": ["TEXT"]
 }
@@ -172,7 +172,7 @@ When using JSON format, provide a JSON object with the following structure:
 ```json
 {
   "operation": "generateContent", 
-  "model": "gemini-2.5-flash-image-preview",
+  "model": "gemini-2.5-flash-image",
   "currentMessage": "Create a modern, minimalist logo for a coffee shop called 'Morning Brew'",
   "responseModalities": ["IMAGE", "TEXT"]
 }
@@ -182,7 +182,7 @@ When using JSON format, provide a JSON object with the following structure:
 ```json
 {
   "operation": "generateContent",
-  "model": "gemini-2.5-flash-image-preview",
+  "model": "gemini-2.5-flash-image",
   "messageHistory": {
     "messages": [{
       "role": "user",
@@ -200,7 +200,7 @@ When using JSON format, provide a JSON object with the following structure:
 ```json
 {
   "operation": "generateContent",
-  "model": "gemini-2.5-flash-image-preview", 
+  "model": "gemini-2.5-flash-image", 
   "messageHistory": {
     "messages": [
       {
@@ -224,7 +224,7 @@ When using JSON format, provide a JSON object with the following structure:
 ```json
 {
   "operation": "generateContent",
-  "model": "gemini-2.5-flash-image-preview",
+  "model": "gemini-2.5-flash-image",
   "inputFormat": "json",
   "jsonInput": "{\n  \"messageHistory\": [\n    {\n      \"contentType\": \"text\",\n      \"text\": \"What's in this image?\",\n      \"role\": \"user\"\n    },\n    {\n      \"contentType\": \"imageUrl\",\n      \"imageUrl\": \"https://example.com/image.jpg\",\n      \"mimeType\": \"image/jpeg\",\n      \"role\": \"user\"\n    }\n  ],\n  \"currentMessage\": \"Can you describe the colors in more detail?\"\n}",
   "responseModalities": ["TEXT"]

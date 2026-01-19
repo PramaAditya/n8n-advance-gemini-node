@@ -195,7 +195,7 @@ export class Gemini implements INodeType {
 						}
 						
 						// Only add imageSize for gemini-3-pro-image-preview
-						// gemini-2.5-flash-image-preview doesn't support resolution parameter
+						// gemini-2.5-flash-image doesn't support resolution parameter
 						if (model === 'gemini-3-pro-image-preview') {
 							const imageSize = this.getNodeParameter('imageSize', i, '1K') as string;
 							imageConfig.imageSize = imageSize;
@@ -233,13 +233,76 @@ export class Gemini implements INodeType {
 					// Generate content
 					let textResponse = '';
 					const generatedImages: any[] = [];
+					let response: any;
 
-					// Use non-streaming response
-					const response = await ai.models.generateContent({
-						model,
-						config,
-						contents,
-					});
+					// Check if parallel batch is enabled
+					const enableParallelBatch = additionalOptions.enableParallelBatch || false;
+					const batchSize = additionalOptions.batchSize || 5;
+
+					if (enableParallelBatch && responseModalities.includes('IMAGE')) {
+						// Make parallel calls and return first response with image (race pattern)
+						const promises = Array(batchSize).fill(null).map((_, index) =>
+							ai.models.generateContent({
+								model,
+								config,
+								contents,
+							}).then((result) => {
+								// Check if this response contains an image
+								if (result.candidates && result.candidates[0]?.content) {
+									const parts = result.candidates[0].content.parts ?? [];
+									const hasImagePart = parts.some((part: any) => part.inlineData);
+									
+									if (hasImagePart) {
+										return { success: true, result, index };
+									}
+								}
+								return { success: false, result, index };
+							}).catch((error: Error) => ({
+								success: false,
+								error: error.message,
+								index
+							}))
+						);
+
+						// Race to get first successful response with image
+						let foundImage = false;
+						response = null;
+
+						// Use Promise.race repeatedly until we find an image or all fail
+						const remainingPromises = [...promises];
+						while (remainingPromises.length > 0 && !foundImage) {
+							const firstCompleted = await Promise.race(remainingPromises);
+							
+							// Remove this promise from remaining
+							const completedIndex = remainingPromises.findIndex(p => p === promises[firstCompleted.index]);
+							if (completedIndex !== -1) {
+								remainingPromises.splice(completedIndex, 1);
+							}
+
+							// Check if this one has an image (type guard)
+							if (firstCompleted.success && 'result' in firstCompleted) {
+								response = firstCompleted.result;
+								foundImage = true;
+								break;
+							}
+						}
+
+						// If no response had an image, throw error
+						if (!foundImage) {
+							throw new NodeOperationError(
+								this.getNode(),
+								`None of the ${batchSize} parallel batch calls returned an image. This might indicate a persistent issue with the prompt or model.`,
+								{ itemIndex: i },
+							);
+						}
+					} else {
+						// Use non-streaming response (original behavior)
+						response = await ai.models.generateContent({
+							model,
+							config,
+							contents,
+						});
+					}
 
 					if (response.candidates && response.candidates[0].content) {
 						const parts = response.candidates[0].content.parts ?? [];
@@ -298,6 +361,15 @@ export class Gemini implements INodeType {
 							totalTokens: textResponse.length, // Approximate
 						},
 					};
+
+					// Add parallel batch metadata if used
+					if (enableParallelBatch && responseModalities.includes('IMAGE')) {
+						result.parallelBatch = {
+							enabled: true,
+							batchSize,
+							note: 'Returned first response with image from parallel calls',
+						};
+					}
 
 					// Add image metadata to JSON result if images were generated
 					if (generatedImages.length > 0) {

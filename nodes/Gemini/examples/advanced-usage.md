@@ -8,7 +8,7 @@ This example recreates the functionality from your original script:
 ```json
 {
   "operation": "generateImage",
-  "model": "gemini-2.5-flash-image-preview",
+  "model": "gemini-2.5-flash-image",
   "messageHistory": {
     "messages": [
       {
@@ -40,7 +40,7 @@ This example recreates the functionality from your original script:
 ```json
 {
   "operation": "generateImage",
-  "model": "gemini-2.5-flash-image-preview",
+  "model": "gemini-2.5-flash-image",
   "inputFormat": "json",
   "jsonInput": "{\n  \"messageHistory\": [\n    {\n      \"role\": \"user\",\n      \"contentType\": \"imageBase64\",\n      \"imageBase64\": \"iVBORw0KGgoAAAANSUhE...\",\n      \"mimeType\": \"image/png\"\n    },\n    {\n      \"role\": \"user\",\n      \"contentType\": \"text\",\n      \"text\": \"Create a consistent photoshoot of the woman wearing a 2 piece Indian Kurti set in a front three-quarter side view with woman looking to her right with right leg stepped forward and weight shifted onto the back leg. Ensure facial consistency and body proportion.\"\n    },\n    {\n      \"role\": \"model\",\n      \"contentType\": \"imageBase64\",\n      \"imageBase64\": \"iVBORw0KGgoAAAA....\",\n      \"mimeType\": \"image/png\"\n    }\n  ],\n  \"currentMessage\": \"INSERT_INPUT_HERE\"\n}",
   "responseModalities": ["IMAGE", "TEXT"],
@@ -61,7 +61,7 @@ This example recreates the functionality from your original script:
 ```json
 {
   "text": "Generated text response...",
-  "model": "gemini-2.5-flash-image-preview",
+  "model": "gemini-2.5-flash-image",
   "responseModalities": ["IMAGE", "TEXT"]
 }
 ```
@@ -112,6 +112,6 @@ All errors include detailed messages for debugging.
 
 | Model | Best For | Image Generation | Speed |
 |-------|----------|------------------|-------|
-| gemini-2.5-flash-image-preview | Image generation | ✅ | Fast |
+| gemini-2.5-flash-image | Image generation | ✅ | Fast |
 | gemini-1.5-flash | Text generation | ❌ | Fastest |
 | gemini-1.5-pro | Complex reasoning | ❌ | Slower |

@@ -5,7 +5,7 @@
 ```json
 {
 	"operation": "generateImage",
-	"model": "gemini-2.5-flash-image-preview",
+	"model": "gemini-2.5-flash-image",
 	"currentMessage": "Write a short poem about artificial intelligence",
 	"responseModalities": ["TEXT"]
 }
@@ -16,7 +16,7 @@
 ```json
 {
 	"operation": "generateImage",
-	"model": "gemini-2.5-flash-image-preview",
+	"model": "gemini-2.5-flash-image",
 	"messageHistory": {
 		"messages": [
 			{
@@ -37,7 +37,7 @@
 ```json
 {
 	"operation": "generateImage",
-	"model": "gemini-2.5-flash-image-preview",
+	"model": "gemini-2.5-flash-image",
 	"messageHistory": {
 		"messages": [
 			{
@@ -62,7 +62,7 @@
 ```json
 {
 	"operation": "generateImage",
-	"model": "gemini-2.5-flash-image-preview",
+	"model": "gemini-2.5-flash-image",
 	"inputFormat": "json",
 	"jsonInput": "{\n  \"messageHistory\": [\n    {\n      \"contentType\": \"text\",\n      \"text\": \"What's in this image?\",\n      \"role\": \"user\"\n    },\n    {\n      \"contentType\": \"imageUrl\",\n      \"imageUrl\": \"https://example.com/image.jpg\",\n      \"mimeType\": \"image/jpeg\",\n      \"role\": \"user\"\n    }\n  ],\n  \"currentMessage\": \"Can you describe the colors in more detail?\"\n}",
 	"responseModalities": ["TEXT"]
@@ -74,7 +74,7 @@
 ```json
 {
 	"operation": "generateImage",
-	"model": "gemini-2.5-flash-image-preview",
+	"model": "gemini-2.5-flash-image",
 	"currentMessage": "Create a detailed technical diagram",
 	"responseModalities": ["IMAGE"],
 	"additionalOptions": {
