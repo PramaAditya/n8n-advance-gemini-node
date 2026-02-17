@@ -188,26 +188,26 @@ export class Gemini implements INodeType {
 						const imageAspectRatio = this.getNodeParameter('imageAspectRatio', i, '') as string;
 
 						const imageConfig: any = {};
-						
+
 						// Only add aspectRatio if it's not Auto (empty string)
 						if (imageAspectRatio) {
 							imageConfig.aspectRatio = imageAspectRatio;
 						}
-						
+
 						// Only add imageSize for gemini-3-pro-image-preview
 						// gemini-2.5-flash-image doesn't support resolution parameter
 						if (model === 'gemini-3-pro-image-preview') {
 							const imageSize = this.getNodeParameter('imageSize', i, '1K') as string;
 							imageConfig.imageSize = imageSize;
 						}
-						
+
 						config.imageConfig = imageConfig;
 					}
 
 					// Add grounding search tools if enabled (only for gemini-3-pro-image-preview)
 					if (model === 'gemini-3-pro-image-preview') {
 						const useGroundingSearch = this.getNodeParameter('useGroundingSearch', i, false) as boolean;
-						
+
 						if (useGroundingSearch) {
 							config.tools = [
 								{
@@ -251,7 +251,7 @@ export class Gemini implements INodeType {
 								if (result.candidates && result.candidates[0]?.content) {
 									const parts = result.candidates[0].content.parts ?? [];
 									const hasImagePart = parts.some((part: any) => part.inlineData);
-									
+
 									if (hasImagePart) {
 										return { success: true, result, index };
 									}
@@ -272,7 +272,7 @@ export class Gemini implements INodeType {
 						const remainingPromises = [...promises];
 						while (remainingPromises.length > 0 && !foundImage) {
 							const firstCompleted = await Promise.race(remainingPromises);
-							
+
 							// Remove this promise from remaining
 							const completedIndex = remainingPromises.findIndex(p => p === promises[firstCompleted.index]);
 							if (completedIndex !== -1) {
@@ -314,12 +314,12 @@ export class Gemini implements INodeType {
 									// Handle generated image
 									const mimeType = part.inlineData.mimeType || 'image/png';
 									const data = part.inlineData.data || '';
-									
+
 									if (this.getNodeParameter('uploadToS3', i, false)) {
 										const bucketName = this.getNodeParameter('s3BucketName', i) as string;
 										const s3PublicDomain = this.getNodeParameter('s3PublicDomain', i, '') as string;
 										const buffer = Buffer.from(data, 'base64');
-										
+
 										const s3Url = await S3Utils.uploadToS3(
 											this,
 											buffer,
@@ -329,7 +329,7 @@ export class Gemini implements INodeType {
 											5,
 											s3PublicDomain
 										);
-										
+
 										generatedImages.push({
 											url: s3Url,
 											mimeType,
@@ -429,7 +429,7 @@ export class Gemini implements INodeType {
 					// Add speech config based on voice mode
 					if (voiceMode === 'single') {
 						let voiceName = this.getNodeParameter('voiceName', i) as string;
-						
+
 						// Handle random voice selection
 						if (voiceName === '__random__') {
 							voiceName = allVoices[Math.floor(Math.random() * allVoices.length)];
@@ -438,7 +438,7 @@ export class Gemini implements INodeType {
 						} else if (voiceName === '__random_female__') {
 							voiceName = femaleVoices[Math.floor(Math.random() * femaleVoices.length)];
 						}
-						
+
 						config.speechConfig = {
 							voiceConfig: {
 								prebuiltVoiceConfig: {
@@ -450,10 +450,10 @@ export class Gemini implements INodeType {
 						// Multi-speaker mode
 						const speakerVoices = this.getNodeParameter('speakerVoices.speakers', i, []) as any[];
 						const usedVoices = new Set<string>();
-						
+
 						const speakerVoiceConfigs = speakerVoices.map((speaker) => {
 							let voiceName = speaker.voiceName;
-							
+
 							// Handle random voice selection for each speaker
 							if (voiceName === '__random__') {
 								// Filter out already used voices
@@ -479,10 +479,10 @@ export class Gemini implements INodeType {
 									voiceName = availableFemaleVoices[Math.floor(Math.random() * availableFemaleVoices.length)];
 								}
 							}
-							
+
 							// Track this voice as used
 							usedVoices.add(voiceName);
-							
+
 							return {
 								speaker: speaker.speakerLabel,
 								voiceConfig: {
@@ -504,39 +504,53 @@ export class Gemini implements INodeType {
 						config.temperature = additionalOptions.temperature;
 					}
 
-					// Build content with instruction and transcript
-					const textContent = `${voiceInstruction}\n${voiceTranscript}`;
-					const contents = [
-						{
-							role: 'user',
-							parts: [{ text: textContent }],
-						},
-					];
+					// Split transcript into chunks for long text support
+					const textChunks = AudioUtils.splitTextIntoChunks(voiceTranscript, 2000);
 
-					// Generate TTS using streaming
-					const response = await ai.models.generateContentStream({
-						model: ttsModel,
-						config,
-						contents,
-					});
+					// Process each chunk and collect per-chunk WAV buffers
+					const chunkWavBuffers: Buffer[] = [];
 
-					const audioChunks: Buffer[] = [];
-					for await (const chunk of response) {
-						if (
-							chunk.candidates?.[0]?.content?.parts?.[0]?.inlineData
-						) {
-							const inlineData = chunk.candidates[0].content.parts[0].inlineData;
-							const rawData = inlineData.data || '';
-							const mimeType = inlineData.mimeType || '';
+					for (let chunkIdx = 0; chunkIdx < textChunks.length; chunkIdx++) {
+						const chunkText = textChunks[chunkIdx];
+						const textContent = `${voiceInstruction}\n${chunkText}`;
+						const chunkContents = [
+							{
+								role: 'user',
+								parts: [{ text: textContent }],
+							},
+						];
 
-							// Convert to WAV
-							const wavBuffer = AudioUtils.convertToWav(rawData, mimeType);
-							audioChunks.push(wavBuffer);
+						// Generate TTS using streaming for this chunk
+						const response = await ai.models.generateContentStream({
+							model: ttsModel,
+							config,
+							contents: chunkContents,
+						});
+
+						const audioChunks: Buffer[] = [];
+						for await (const chunk of response) {
+							if (
+								chunk.candidates?.[0]?.content?.parts?.[0]?.inlineData
+							) {
+								const inlineData = chunk.candidates[0].content.parts[0].inlineData;
+								const rawData = inlineData.data || '';
+								const mimeType = inlineData.mimeType || '';
+
+								// Convert to WAV
+								const wavBuffer = AudioUtils.convertToWav(rawData, mimeType);
+								audioChunks.push(wavBuffer);
+							}
+						}
+
+						// Combine streaming chunks for this text chunk into a single WAV
+						if (audioChunks.length > 0) {
+							const chunkWav = AudioUtils.concatenateWavBuffers(audioChunks);
+							chunkWavBuffers.push(chunkWav);
 						}
 					}
 
-					// Combine all audio chunks
-					const finalAudio = Buffer.concat(audioChunks);
+					// Concatenate all chunk WAVs into final audio
+					const finalAudio = AudioUtils.concatenateWavBuffers(chunkWavBuffers);
 
 					// Handle output (S3 or binary)
 					const result: any = {
@@ -545,10 +559,17 @@ export class Gemini implements INodeType {
 						audioFormat: 'audio/wav',
 					};
 
+					// Add chunking metadata
+					if (textChunks.length > 1) {
+						result.chunking = {
+							totalChunks: textChunks.length,
+							chunkSizes: textChunks.map((c) => c.length),
+						};
+					}
 					if (this.getNodeParameter('uploadToS3', i, false)) {
 						const bucketName = this.getNodeParameter('s3BucketName', i) as string;
 						const s3PublicDomain = this.getNodeParameter('s3PublicDomain', i, '') as string;
-						
+
 						const s3Url = await S3Utils.uploadToS3(
 							this,
 							finalAudio,
@@ -558,7 +579,7 @@ export class Gemini implements INodeType {
 							5,
 							s3PublicDomain
 						);
-						
+
 						result.audioUrl = s3Url;
 						result.fileName = s3Url.split('/').pop();
 
@@ -568,7 +589,7 @@ export class Gemini implements INodeType {
 						});
 					} else {
 						const fileName = `tts_${ulid()}`;
-						
+
 						returnData.push({
 							json: result,
 							binary: {
@@ -608,7 +629,7 @@ export class Gemini implements INodeType {
 					});
 
 					// Build config
-					const aspectRatio = generationMode !== 'extendVideo' 
+					const aspectRatio = generationMode !== 'extendVideo'
 						? this.getNodeParameter('aspectRatio', i) as string
 						: undefined;
 
@@ -634,12 +655,12 @@ export class Gemini implements INodeType {
 
 					// Handle prompt with audio preference
 					let finalPrompt = videoPrompt && videoPrompt.trim() ? videoPrompt.trim() : '';
-					
+
 					// If audio is disabled, prepend silent instructions to prompt
 					if (!generateAudio && finalPrompt) {
 						finalPrompt = `[Silent film, no audio, no sound effects, no background music] ${finalPrompt}`;
 					}
-					
+
 					// Add prompt if provided
 					if (finalPrompt) {
 						generateVideoPayload.prompt = finalPrompt;
@@ -734,7 +755,7 @@ export class Gemini implements INodeType {
 							{ itemIndex: i },
 						);
 					}
-					
+
 					// Check for error and safety filters (type-safe way)
 					const responseAny = videoOperation.response as any;
 					if (responseAny.error) {
@@ -744,7 +765,7 @@ export class Gemini implements INodeType {
 							{ itemIndex: i },
 						);
 					}
-					
+
 					// Check for safety filter
 					if (responseAny.raiMediaFilteredCount && responseAny.raiMediaFilteredCount > 0) {
 						const reasons = responseAny.raiMediaFilteredReasons || [];
@@ -754,7 +775,7 @@ export class Gemini implements INodeType {
 							{ itemIndex: i },
 						);
 					}
-					
+
 					// SDK may return either generatedVideos (normalized) or generateVideoResponse.generatedSamples (raw API)
 					const generatedSamples = responseAny.generatedVideos || responseAny.generateVideoResponse?.generatedSamples;
 					if (!generatedSamples || !Array.isArray(generatedSamples) || generatedSamples.length === 0) {
@@ -776,7 +797,7 @@ export class Gemini implements INodeType {
 
 					const videoObject = firstVideo.video;
 					const videoUri = videoObject.uri ? decodeURIComponent(videoObject.uri) : '';
-					
+
 					if (!videoUri) {
 						throw new NodeOperationError(
 							this.getNode(),
@@ -807,7 +828,7 @@ export class Gemini implements INodeType {
 					let finalVideoBuffer = videoBuffer;
 					let audioRemovalAttempted = false;
 					let audioRemovalSuccess = false;
-					
+
 					if (!generateAudio) {
 						audioRemovalAttempted = true;
 						const result = await VideoUtils.removeAudioFromVideo(this, videoBuffer);
@@ -858,7 +879,7 @@ export class Gemini implements INodeType {
 					}
 
 					result.generateAudio = generateAudio;
-					
+
 					// Add audio removal info if attempted
 					if (audioRemovalAttempted) {
 						result.audioRemovalAttempted = true;
@@ -895,7 +916,7 @@ export class Gemini implements INodeType {
 
 					// Fetch the start frame image
 					const startFrameImage = await VideoUtils.fetchImageForVideo(this, livePhotoImageUrl);
-					
+
 					// Optionally fetch end frame if provided
 					let endFrameImage = null;
 					if (livePhotoEndFrameUrl && livePhotoEndFrameUrl.trim()) {
@@ -931,7 +952,7 @@ export class Gemini implements INodeType {
 						prompt: finalPrompt,
 						image: startFrameImage,
 					};
-					
+
 					// Add end frame if provided (for interpolation)
 					if (endFrameImage) {
 						generateVideoPayload.config.lastFrame = endFrameImage;
@@ -967,7 +988,7 @@ export class Gemini implements INodeType {
 							{ itemIndex: i },
 						);
 					}
-					
+
 					// Check for error in response (type-safe way)
 					const responseAny = videoOperation.response as any;
 					if (responseAny.error) {
@@ -977,7 +998,7 @@ export class Gemini implements INodeType {
 							{ itemIndex: i },
 						);
 					}
-					
+
 					// Check for safety filter
 					if (responseAny.raiMediaFilteredCount && responseAny.raiMediaFilteredCount > 0) {
 						const reasons = responseAny.raiMediaFilteredReasons || [];
@@ -987,7 +1008,7 @@ export class Gemini implements INodeType {
 							{ itemIndex: i },
 						);
 					}
-					
+
 					// SDK may return either generatedVideos (normalized) or generateVideoResponse.generatedSamples (raw API)
 					const generatedSamples = responseAny.generatedVideos || responseAny.generateVideoResponse?.generatedSamples;
 					if (!generatedSamples || !Array.isArray(generatedSamples) || generatedSamples.length === 0) {

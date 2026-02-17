@@ -71,4 +71,118 @@ export class AudioUtils {
 		return Buffer.concat([wavHeader, dataBuffer]);
 	}
 
+	/**
+	 * Intelligently split long text into chunks at natural boundaries.
+	 * Priority: paragraph break → sentence end → comma/semicolon → word boundary → hard cut.
+	 */
+	static splitTextIntoChunks(text: string, maxChunkSize: number = 2000): string[] {
+		if (!text || text.length <= maxChunkSize) {
+			return [text];
+		}
+
+		const chunks: string[] = [];
+		let remaining = text;
+
+		while (remaining.length > 0) {
+			if (remaining.length <= maxChunkSize) {
+				const trimmed = remaining.trim();
+				if (trimmed.length > 0) {
+					chunks.push(trimmed);
+				}
+				break;
+			}
+
+			const window = remaining.substring(0, maxChunkSize);
+			let splitIndex = -1;
+
+			// 1. Try paragraph break (\n\n)
+			const paragraphIdx = window.lastIndexOf('\n\n');
+			if (paragraphIdx > 0) {
+				splitIndex = paragraphIdx;
+			}
+
+			// 2. Try sentence end (.?!)
+			if (splitIndex === -1) {
+				for (let j = window.length - 1; j > 0; j--) {
+					const ch = window[j];
+					if ((ch === '.' || ch === '?' || ch === '!') &&
+						(j + 1 >= window.length || window[j + 1] === ' ' || window[j + 1] === '\n')) {
+						splitIndex = j + 1;
+						break;
+					}
+				}
+			}
+
+			// 3. Try comma or semicolon
+			if (splitIndex === -1) {
+				for (let j = window.length - 1; j > 0; j--) {
+					if (window[j] === ',' || window[j] === ';') {
+						splitIndex = j + 1;
+						break;
+					}
+				}
+			}
+
+			// 4. Try word boundary (space)
+			if (splitIndex === -1) {
+				const lastSpace = window.lastIndexOf(' ');
+				if (lastSpace > 0) {
+					splitIndex = lastSpace;
+				}
+			}
+
+			// 5. Hard cut as last resort
+			if (splitIndex === -1) {
+				splitIndex = maxChunkSize;
+			}
+
+			const chunk = remaining.substring(0, splitIndex).trim();
+			if (chunk.length > 0) {
+				chunks.push(chunk);
+			}
+			remaining = remaining.substring(splitIndex).trim();
+		}
+
+		return chunks;
+	}
+
+	/**
+	 * Concatenate multiple WAV buffers into a single WAV file.
+	 * Strips headers from individual buffers, merges raw PCM data,
+	 * and creates a unified WAV header.
+	 */
+	static concatenateWavBuffers(wavBuffers: Buffer[]): Buffer {
+		if (wavBuffers.length === 0) {
+			return Buffer.alloc(0);
+		}
+
+		if (wavBuffers.length === 1) {
+			return wavBuffers[0];
+		}
+
+		// Read audio parameters from the first WAV header
+		const first = wavBuffers[0];
+		const numChannels = first.readUInt16LE(22);
+		const sampleRate = first.readUInt32LE(24);
+		const bitsPerSample = first.readUInt16LE(34);
+
+		// Extract raw PCM data (skip 44-byte WAV header) from each buffer
+		const pcmParts: Buffer[] = [];
+		let totalPcmLength = 0;
+		for (const wav of wavBuffers) {
+			const pcm = wav.subarray(44);
+			pcmParts.push(pcm);
+			totalPcmLength += pcm.length;
+		}
+
+		// Build a single WAV with combined PCM data
+		const header = this.createWavHeader(totalPcmLength, {
+			numChannels,
+			sampleRate,
+			bitsPerSample,
+		});
+
+		return Buffer.concat([header, ...pcmParts]);
+	}
+
 }
