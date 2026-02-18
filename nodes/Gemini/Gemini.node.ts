@@ -507,11 +507,13 @@ export class Gemini implements INodeType {
 					// Split transcript into chunks for long text support
 					const textChunks = AudioUtils.splitTextIntoChunks(voiceTranscript, 2000);
 
-					// Process each chunk and collect per-chunk WAV buffers
-					const chunkWavBuffers: Buffer[] = [];
+					// --- Parallel chunk processing with retry and timeout ---
+					const MAX_CONCURRENT = 3;
+					const MAX_RETRIES = 3;
+					const CHUNK_TIMEOUT_MS = 120_000; // 2 minutes per chunk
 
-					for (let chunkIdx = 0; chunkIdx < textChunks.length; chunkIdx++) {
-						const chunkText = textChunks[chunkIdx];
+					// Helper: process a single chunk with timeout
+					const processChunk = async (chunkText: string): Promise<Buffer> => {
 						const textContent = `${voiceInstruction}\n${chunkText}`;
 						const chunkContents = [
 							{
@@ -520,34 +522,96 @@ export class Gemini implements INodeType {
 							},
 						];
 
-						// Generate TTS using streaming for this chunk
-						const response = await ai.models.generateContentStream({
-							model: ttsModel,
-							config,
-							contents: chunkContents,
-						});
+						// Wrap streaming call in a timeout
+						const timeoutPromise = new Promise<never>((_, reject) =>
+							setTimeout(() => reject(new Error('TTS chunk request timed out')), CHUNK_TIMEOUT_MS),
+						);
 
-						const audioChunks: Buffer[] = [];
-						for await (const chunk of response) {
-							if (
-								chunk.candidates?.[0]?.content?.parts?.[0]?.inlineData
-							) {
-								const inlineData = chunk.candidates[0].content.parts[0].inlineData;
-								const rawData = inlineData.data || '';
-								const mimeType = inlineData.mimeType || '';
+						const streamPromise = (async () => {
+							const response = await ai.models.generateContentStream({
+								model: ttsModel,
+								config,
+								contents: chunkContents,
+							});
 
-								// Convert to WAV
-								const wavBuffer = AudioUtils.convertToWav(rawData, mimeType);
-								audioChunks.push(wavBuffer);
+							const audioChunks: Buffer[] = [];
+							for await (const chunk of response) {
+								if (
+									chunk.candidates?.[0]?.content?.parts?.[0]?.inlineData
+								) {
+									const inlineData = chunk.candidates[0].content.parts[0].inlineData;
+									const rawData = inlineData.data || '';
+									const mimeType = inlineData.mimeType || '';
+									const wavBuffer = AudioUtils.convertToWav(rawData, mimeType);
+									audioChunks.push(wavBuffer);
+								}
+							}
+
+							if (audioChunks.length === 0) {
+								throw new Error('TTS chunk returned no audio data');
+							}
+
+							return AudioUtils.concatenateWavBuffers(audioChunks);
+						})();
+
+						return Promise.race([streamPromise, timeoutPromise]);
+					};
+
+					// Helper: process a single chunk with retry + exponential backoff
+					const processChunkWithRetry = async (chunkText: string, chunkIdx: number): Promise<{ index: number; buffer: Buffer }> => {
+						let lastError: Error | undefined;
+						for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+							try {
+								const buffer = await processChunk(chunkText);
+								return { index: chunkIdx, buffer };
+							} catch (error) {
+								lastError = error;
+								if (attempt < MAX_RETRIES) {
+									// Exponential backoff: 1s, 2s, 4s
+									const delay = Math.pow(2, attempt - 1) * 1000;
+									await new Promise((resolve) => setTimeout(resolve, delay));
+								}
 							}
 						}
+						throw new NodeOperationError(
+							this.getNode(),
+							`TTS chunk ${chunkIdx + 1}/${textChunks.length} failed after ${MAX_RETRIES} attempts: ${lastError?.message}`,
+							{ itemIndex: i },
+						);
+					};
 
-						// Combine streaming chunks for this text chunk into a single WAV
-						if (audioChunks.length > 0) {
-							const chunkWav = AudioUtils.concatenateWavBuffers(audioChunks);
-							chunkWavBuffers.push(chunkWav);
-						}
+					// Execute chunks with bounded concurrency
+					const results: { index: number; buffer: Buffer }[] = [];
+					const active = new Set<Promise<void>>();
+					let nextChunkIdx = 0;
+
+					const enqueueNext = (): void => {
+						if (nextChunkIdx >= textChunks.length) return;
+						const idx = nextChunkIdx++;
+						const p = processChunkWithRetry(textChunks[idx], idx)
+							.then((result) => {
+								results.push(result);
+							})
+							.finally(() => {
+								active.delete(p);
+							});
+						active.add(p);
+					};
+
+					// Fill initial batch
+					for (let j = 0; j < Math.min(MAX_CONCURRENT, textChunks.length); j++) {
+						enqueueNext();
 					}
+
+					// Process remaining chunks as slots free up
+					while (active.size > 0) {
+						await Promise.race(active);
+						enqueueNext();
+					}
+
+					// Sort results back into original order and extract buffers
+					results.sort((a, b) => a.index - b.index);
+					const chunkWavBuffers = results.map((r) => r.buffer);
 
 					// Concatenate all chunk WAVs into final audio
 					let finalAudio = AudioUtils.concatenateWavBuffers(chunkWavBuffers);
