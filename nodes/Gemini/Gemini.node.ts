@@ -550,13 +550,20 @@ export class Gemini implements INodeType {
 					}
 
 					// Concatenate all chunk WAVs into final audio
-					const finalAudio = AudioUtils.concatenateWavBuffers(chunkWavBuffers);
+					let finalAudio = AudioUtils.concatenateWavBuffers(chunkWavBuffers);
+
+					// Apply playback speed if configured
+					const playbackSpeed = additionalOptions.playbackSpeed || 1.0;
+					if (playbackSpeed !== 1.0) {
+						finalAudio = AudioUtils.changePlaybackSpeed(finalAudio, playbackSpeed);
+					}
 
 					// Handle output (S3 or binary)
 					const result: any = {
 						model: ttsModel,
 						voiceMode,
 						audioFormat: 'audio/wav',
+						...(playbackSpeed !== 1.0 && { playbackSpeed }),
 					};
 
 					// Add chunking metadata

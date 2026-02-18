@@ -185,4 +185,32 @@ export class AudioUtils {
 		return Buffer.concat([header, ...pcmParts]);
 	}
 
+	/**
+	 * Change playback speed of a WAV buffer by adjusting its sample rate.
+	 * Speed > 1.0 = faster, Speed < 1.0 = slower.
+	 */
+	static changePlaybackSpeed(wavBuffer: Buffer, speed: number): Buffer {
+		if (speed === 1.0) {
+			return wavBuffer;
+		}
+
+		// Clone the buffer so we don't mutate the original
+		const result = Buffer.from(wavBuffer);
+
+		// Read original values
+		const originalSampleRate = result.readUInt32LE(24);
+		const numChannels = result.readUInt16LE(22);
+		const bitsPerSample = result.readUInt16LE(34);
+
+		// Calculate new sample rate and byte rate
+		const newSampleRate = Math.round(originalSampleRate * speed);
+		const newByteRate = (newSampleRate * numChannels * bitsPerSample) / 8;
+
+		// Write updated values into the header
+		result.writeUInt32LE(newSampleRate, 24);  // SampleRate
+		result.writeUInt32LE(newByteRate, 28);     // ByteRate
+
+		return result;
+	}
+
 }

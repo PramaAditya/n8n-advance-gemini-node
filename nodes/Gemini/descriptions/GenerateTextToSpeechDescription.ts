@@ -246,6 +246,18 @@ export const generateTTSFields: INodeProperties[] = [
 				},
 				description: 'Controls randomness in the output',
 			},
+			{
+				displayName: 'Playback Speed',
+				name: 'playbackSpeed',
+				type: 'number',
+				default: 1.0,
+				typeOptions: {
+					minValue: 0.1,
+					maxValue: 10.0,
+					numberPrecision: 2,
+				},
+				description: 'Adjust playback speed of the output audio. 1.0 = normal, 2.0 = 2x faster, 0.5 = half speed.',
+			},
 		],
 	},
 ];
