@@ -508,7 +508,7 @@ export class Gemini implements INodeType {
 					const textChunks = AudioUtils.splitTextIntoChunks(voiceTranscript, 2000);
 
 					// --- Parallel chunk processing with retry and timeout ---
-					const MAX_CONCURRENT = 3;
+					const MAX_CONCURRENT = 6;
 					const MAX_RETRIES = 3;
 					const CHUNK_TIMEOUT_MS = 120_000; // 2 minutes per chunk
 
