@@ -20,9 +20,14 @@ export const generateImageFields: INodeProperties[] = [
 				name: 'Nano Banana Pro (3 Pro Image Preview)',
 				value: 'gemini-3-pro-image-preview',
 				description: 'Advanced image generation model with perfect text rendering - excellent for educational illustrations',
+			},
+			{
+				name: '3.1 Flash Image Preview',
+				value: 'gemini-3.1-flash-image-preview',
+				description: 'Fast and versatile image generation model',
 			}
 		],
-		default: 'gemini-2.5-flash-image',
+		default: 'gemini-3.1-flash-image-preview',
 	},
 	{
 		displayName: 'Input Images',
