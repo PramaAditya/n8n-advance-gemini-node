@@ -204,14 +204,35 @@ export class Gemini implements INodeType {
 						config.imageConfig = imageConfig;
 					}
 
-					// Add grounding search tools if enabled (only for gemini-3-pro-image-preview)
-					if (model === 'gemini-3-pro-image-preview') {
+					// Add grounding search tools if enabled
+					if (model === 'gemini-3-pro-image-preview' || model === 'gemini-3.1-flash-image-preview') {
 						const useGroundingSearch = this.getNodeParameter('useGroundingSearch', i, false) as boolean;
+						let useImageSearch = false;
+						
+						if (model === 'gemini-3.1-flash-image-preview') {
+							useImageSearch = this.getNodeParameter('useImageSearch', i, false) as boolean;
+						}
 
-						if (useGroundingSearch) {
+						if (useGroundingSearch || useImageSearch) {
+							const searchTypes: any = {};
+							
+							if (useGroundingSearch) {
+								searchTypes.webSearch = {};
+							}
+							
+							if (useImageSearch) {
+								searchTypes.imageSearch = {};
+							}
+
+							const googleSearchTool: any = {};
+							
+							if (model === 'gemini-3.1-flash-image-preview') {
+								googleSearchTool.searchTypes = searchTypes;
+							}
+
 							config.tools = [
 								{
-									googleSearch: {},
+									googleSearch: googleSearchTool,
 								},
 							];
 						}
@@ -361,6 +382,10 @@ export class Gemini implements INodeType {
 							totalTokens: textResponse.length, // Approximate
 						},
 					};
+
+					if (response?.candidates?.[0]?.groundingMetadata) {
+						result.groundingMetadata = response.candidates[0].groundingMetadata;
+					}
 
 					// Add parallel batch metadata if used
 					if (enableParallelBatch && responseModalities.includes('IMAGE')) {

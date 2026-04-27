@@ -269,11 +269,24 @@ export const generateImageFields: INodeProperties[] = [
 		displayOptions: {
 			show: {
 				operation: ['generateImage'],
-				model: ['gemini-3-pro-image-preview'],
+				model: ['gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview'],
 			},
 		},
 		default: false,
-		description: 'Whether to enable grounding search to ground image generation with real-world knowledge (only available for Nano Banana Pro)',
+		description: 'Whether to enable grounding search to ground image generation with real-world knowledge',
+	},
+	{
+		displayName: 'Use Image Search',
+		name: 'useImageSearch',
+		type: 'boolean',
+		displayOptions: {
+			show: {
+				operation: ['generateImage'],
+				model: ['gemini-3.1-flash-image-preview'],
+			},
+		},
+		default: false,
+		description: 'Whether to enable Image Search to ground image generation with web images (only available for 3.1 Flash Image Preview)',
 	},
 	{
 		displayName: 'Upload to S3',
